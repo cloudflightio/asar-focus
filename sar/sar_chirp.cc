@@ -78,7 +78,7 @@ void GenerateChirpData(ChirpInfo& chirp, size_t padding_size) {
     chirp.time_domain.resize(n_samples);
 
     for (int64_t i = 0; i < n_samples; i++) {
-        const double t = (i - n_samples / 2) * dt;
+        const double t = (i - n_samples / 2 + 0.5) * dt;
         const double phase = M_PI * Kr * t * t;
         std::complex<float> iq(cos(phase), sin(phase));
 

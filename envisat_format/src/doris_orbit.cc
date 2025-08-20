@@ -85,7 +85,7 @@ const std::vector<OrbitStateVector>& Parsable::CreateOrbitInfo(boost::posix_time
         const auto listing = listing_;  // Make a copy for possible instantiation.
         bool found{false};
         for (const auto& l : listing) {
-            if (l.start < start && l.end > stop) {
+            if (l.start <= start && l.end >= stop) {
                 *this = CreateFromFile(l.file_path.c_str());
                 this->listing_ = listing;
                 found = true;
