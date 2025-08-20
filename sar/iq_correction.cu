@@ -259,7 +259,7 @@ void RawDataCorrection(DevicePaddedImage& img, CorrectionParams par, SARResults&
 
         double delta_theta = iq_sum / i_sq_sum;
         float sin_corr = delta_theta;
-        float cos_corr = (1 - delta_theta * delta_theta);
+        float cos_corr = sqrt(1 - delta_theta * delta_theta);
         double quad_misconf = asin(iq_sum / i_sq_sum);
 
         double deg_misconf = 360 * quad_misconf / (2 * M_PI);
