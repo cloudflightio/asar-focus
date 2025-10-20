@@ -240,6 +240,10 @@ int main(int argc, char* argv[]) {
 
         TimeStop(gpu_transfer_start, "GPU image formation");
 
+        if (args.StoreIntensity()) {
+            alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "orig", img);
+        }
+
         auto correction_start = TimeStart();
         RawDataCorrection(img, {sar_meta.total_raw_samples}, sar_meta.results);
         img.ZeroNaNs();

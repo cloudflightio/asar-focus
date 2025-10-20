@@ -352,6 +352,10 @@ void RangeDopplerAlgorithm(const SARMetadata& metadata, DevicePaddedImage& src_i
     k_args.azimuth_bandwidth_fraction = metadata.azimuth_bandwidth_fraction;
     k_args.apply_az_window = metadata.azimuth_window;
 
+    for(size_t i=0; i<sizeof(k_args); i++) {
+        LOGD << "k_args[" << i << "] = " << (unsigned int)(((unsigned char *)&k_args)[i]);
+    }
+
     // double dc = CalcDopplerCentroid(metadata, metadata.img.range_size / 2);
 
     // LOGV << "KARGS prf = " << k_args.prf;

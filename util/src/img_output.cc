@@ -87,5 +87,8 @@ void WriteTiff(const DevicePaddedImage& img, bool complex_output, bool padding, 
 }  // namespace
 
 void WriteIntensityPaddedImg(const DevicePaddedImage& img, const char* path) {
-    WriteTiff(img, false, false, path, false);
+    auto complex_output = /* false */ true;
+    auto padding = /* false */ true;
+    auto cut = false;
+    WriteTiff(img, complex_output, padding, path, cut);
 }
