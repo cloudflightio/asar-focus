@@ -22,11 +22,13 @@
 #include "envisat_parse_util.cuh"
 #include "envisat_types.h"
 #include "ers_env_format.h"
+#include "envisat_lvl1_ads.h"
 
 namespace alus::asar::envformat {
 
 __global__ void CalibrateClampToBigEndian(const cufftComplex* data, int x_size_stride, int x_size, int y_size,
-                                          char* dest_space, int record_header_size, float calibration_constant) {
+                                          char* dest_space, int record_header_size, float calibration_constant,
+                                          int *days, uint *seconds, uint *microns) {
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
 
@@ -49,9 +51,23 @@ __global__ void CalibrateClampToBigEndian(const cufftComplex* data, int x_size_s
         // ...
         const int dest_idx = (y * mds_x_size) + record_header_size + (x * sizeof(IQ16));
         if (x == 0) {
-            for (int i{record_header_size}; i >= 0; i--) {
-                dest_space[dest_idx - i] = 0x00;
-            }
+            dest_space[dest_idx - 17] = static_cast<char>((days[y] >> 24) & 0x00FF);
+            dest_space[dest_idx - 16] = static_cast<char>((days[y] >> 16) & 0x00FF);
+            dest_space[dest_idx - 15] = static_cast<char>((days[y] >> 8) & 0x00FF);
+            dest_space[dest_idx - 14] = static_cast<char>(days[y] & 0x00FF);
+            dest_space[dest_idx - 13] = static_cast<char>((seconds[y] >> 24) & 0x00FF);
+            dest_space[dest_idx - 12] = static_cast<char>((seconds[y] >> 16) & 0x00FF);
+            dest_space[dest_idx - 11] = static_cast<char>((seconds[y] >> 8) & 0x00FF);
+            dest_space[dest_idx - 10] = static_cast<char>(seconds[y] & 0x00FF);
+            dest_space[dest_idx - 9] = static_cast<char>((microns[y] >> 24) & 0x00FF);
+            dest_space[dest_idx - 8] = static_cast<char>((microns[y] >> 16) & 0x00FF);
+            dest_space[dest_idx - 7] = static_cast<char>((microns[y] >> 8) & 0x00FF);
+            dest_space[dest_idx - 6] = static_cast<char>(microns[y] & 0x00FF);
+            dest_space[dest_idx - 5] = 0x00;
+            dest_space[dest_idx - 4] = static_cast<char>((y >> 24) & 0x00FF);
+            dest_space[dest_idx - 3] = static_cast<char>((y >> 16) & 0x00FF);
+            dest_space[dest_idx - 2] = static_cast<char>((y >> 8) & 0x00FF);
+            dest_space[dest_idx - 1] = static_cast<char>(y & 0x00FF);
         }
 
         dest_space[dest_idx] = static_cast<char>(result.i & 0x00FF);
@@ -62,7 +78,8 @@ __global__ void CalibrateClampToBigEndian(const cufftComplex* data, int x_size_s
 }
 
 __global__ void CalibrateClampToBigEndianDetected(const float* data, int x_size, int y_size, char* dest_space,
-                                                  int record_header_size, float calibration_constant) {
+                                                  int record_header_size, float calibration_constant,
+                                                  int *days, uint *seconds, uint *microns) {
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
 
@@ -80,9 +97,23 @@ __global__ void CalibrateClampToBigEndianDetected(const float* data, int x_size,
         // ...
         const int dest_idx = (y * mds_x_size) + record_header_size + (x * sizeof(uint16_t));
         if (x == 0) {
-            for (int i{record_header_size}; i >= 0; i--) {
-                dest_space[dest_idx - i] = 0x00;
-            }
+            dest_space[dest_idx - 17] = static_cast<char>((days[y] >> 24) & 0x00FF);
+            dest_space[dest_idx - 16] = static_cast<char>((days[y] >> 16) & 0x00FF);
+            dest_space[dest_idx - 15] = static_cast<char>((days[y] >> 8) & 0x00FF);
+            dest_space[dest_idx - 14] = static_cast<char>(days[y] & 0x00FF);
+            dest_space[dest_idx - 13] = static_cast<char>((seconds[y] >> 24) & 0x00FF);
+            dest_space[dest_idx - 12] = static_cast<char>((seconds[y] >> 16) & 0x00FF);
+            dest_space[dest_idx - 11] = static_cast<char>((seconds[y] >> 8) & 0x00FF);
+            dest_space[dest_idx - 10] = static_cast<char>(seconds[y] & 0x00FF);
+            dest_space[dest_idx - 9] = static_cast<char>((microns[y] >> 24) & 0x00FF);
+            dest_space[dest_idx - 8] = static_cast<char>((microns[y] >> 16) & 0x00FF);
+            dest_space[dest_idx - 7] = static_cast<char>((microns[y] >> 8) & 0x00FF);
+            dest_space[dest_idx - 6] = static_cast<char>(microns[y] & 0x00FF);
+            dest_space[dest_idx - 5] = 0x00;
+            dest_space[dest_idx - 4] = static_cast<char>((y >> 24) & 0x00FF);
+            dest_space[dest_idx - 3] = static_cast<char>((y >> 16) & 0x00FF);
+            dest_space[dest_idx - 2] = static_cast<char>((y >> 8) & 0x00FF);
+            dest_space[dest_idx - 1] = static_cast<char>(y & 0x00FF);
         }
 
         dest_space[dest_idx] = static_cast<char>(result & 0x00FF);
@@ -90,25 +121,54 @@ __global__ void CalibrateClampToBigEndianDetected(const float* data, int x_size,
     }
 }
 
+std::vector<mjd> calc_zero_doppler_times(boost::posix_time::ptime start, boost::posix_time::ptime end, int y_size) {
+    boost::posix_time::time_duration interval = (end - start) / (y_size - 1);
+    std::vector<mjd> zero_doppler_times{};
+    for (int i = 0; i < y_size; i++) {
+        zero_doppler_times.push_back(PtimeToMjd(start + interval * i));
+    }
+    return zero_doppler_times;
+}
+
 void ConditionResultsSLC(DevicePaddedImage& img, char* dest_space, size_t record_header_size,
-                         float calibration_constant) {
+                         float calibration_constant, ASARMetadata &asar_meta) {
     const auto x_size_stride = img.XStride();  // Need to count for FFT padding when rows are concerned
     const auto x_size = img.XSize();
     const auto y_size = img.YSize();  // No need to calculate on Y padded FFT data
+
+    std::vector<mjd> zero_doppler_times = calc_zero_doppler_times(asar_meta.sensing_start, asar_meta.sensing_stop, y_size);
+    std::vector<int> days;
+    std::vector<uint> seconds, microns;
+    for (mjd zdt : zero_doppler_times) {
+        days.push_back(zdt.days);
+        seconds.push_back(zdt.seconds);
+        microns.push_back(zdt.micros);
+    }
+
     dim3 block_sz(16, 16);
     dim3 grid_sz((x_size_stride + 15) / 16, (y_size + 15) / 16);
     CalibrateClampToBigEndian<<<grid_sz, block_sz>>>(img.Data(), x_size_stride, x_size, y_size, dest_space,
-                                                     record_header_size, calibration_constant);
+                                                     record_header_size, calibration_constant, days.data(), seconds.data(), microns.data());
     CHECK_CUDA_ERR(cudaDeviceSynchronize());
     CHECK_CUDA_ERR(cudaGetLastError());
 }
 
 void ConditionResultsDetected(const float* d_img, char* d_dest_space, int range_size, int azimuth_size,
-                              size_t record_header_size, float calibration_constant) {
+                              size_t record_header_size, float calibration_constant, ASARMetadata &asar_meta) {
+
+    std::vector<mjd> zero_doppler_times = calc_zero_doppler_times(asar_meta.sensing_start, asar_meta.sensing_stop, azimuth_size);
+    std::vector<int> days;
+    std::vector<uint> seconds, microns;
+    for (mjd zdt : zero_doppler_times) {
+        days.push_back(zdt.days);
+        seconds.push_back(zdt.seconds);
+        microns.push_back(zdt.micros);
+    }
+
     dim3 block_sz(16, 16);
     dim3 grid_sz((range_size + 15) / 16, (azimuth_size + 15) / 16);
     CalibrateClampToBigEndianDetected<<<grid_sz, block_sz>>>(d_img, range_size, azimuth_size, d_dest_space,
-                                                             record_header_size, calibration_constant);
+                                                             record_header_size, calibration_constant, days.data(), seconds.data(), microns.data());
     CHECK_CUDA_ERR(cudaDeviceSynchronize());
     CHECK_CUDA_ERR(cudaGetLastError());
 }
