@@ -62,9 +62,10 @@ AzimuthRangeWindow CalcResultsWindow(double doppler_centroid_constant_term, size
                                      const sar::focus::RcmcParameters& rcmc_params);
 
 // Calibrate, clamp and Big endian results with empty header into dest_space, which shall be a device memory.
-void FormatResultsSLC(DevicePaddedImage& img, char* dest_space, size_t record_header_size, float calibration_constant);
+void FormatResultsSLC(DevicePaddedImage& img, char* dest_space, size_t record_header_size, float calibration_constant,
+                      ASARMetadata &asar_meta);
 void FormatResultsDetected(const float* d_img, char* dest_space, int range_size, int azimuth_size,
-                           size_t record_header_size, float calibration_constant);
+                           size_t record_header_size, float calibration_constant, ASARMetadata &asar_meta);
 
 void StorePlots(std::string output_path, std::string product_name, const SARMetadata& sar_metadata);
 

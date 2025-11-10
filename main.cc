@@ -283,7 +283,6 @@ int main(int argc, char* argv[]) {
             alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "rc", img);
         }
 
-        // GAINCORRECTION
         GainCorrection(img, sar_meta, asar_meta, ins_file, xca);
 
         auto az_comp_start = TimeStart();
@@ -374,7 +373,8 @@ int main(int argc, char* argv[]) {
             const float* d_deteced_img = srgr_dest.GetAs<float>();
 
             alus::asar::mainflow::FormatResultsDetected(d_deteced_img, device_mds_buf, sar_meta.img.range_size,
-                                                        sar_meta.img.azimuth_size, record_header_bytes, tambov);
+                                                        sar_meta.img.azimuth_size, record_header_bytes, tambov,
+                                                        asar_meta);
             CHECK_CUDA_ERR(
                 cudaMemcpy(mds.buf, device_mds_buf, mds.n_records * mds.record_size, cudaMemcpyDeviceToHost));
             if (!lvl1_file_handle.CanWrite(std::chrono::seconds(10))) {
@@ -431,7 +431,7 @@ int main(int argc, char* argv[]) {
             }
 
             auto device_mds_buf = d_workspace.GetAs<char>();
-            alus::asar::mainflow::FormatResultsSLC(subsetted_raster, device_mds_buf, record_header_bytes, tambov);
+            alus::asar::mainflow::FormatResultsSLC(subsetted_raster, device_mds_buf, record_header_bytes, tambov, asar_meta);
             TimeStop(result_correction_start, "Image results correction");
 
             auto mds_formation = TimeStart();
