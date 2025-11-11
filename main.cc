@@ -327,9 +327,6 @@ int main(int argc, char* argv[]) {
         if (alus::asar::specification::IsDetectedProduct(asar_meta.target_product_type)) {
             AzimuthMultiLook(subsetted_raster, d_workspace, sar_meta);
 
-            RangeSpreadingLossCorrection(d_workspace.GetAs<float>(), sar_meta.img.range_size, sar_meta.img.azimuth_size,
-                                         {sar_meta.slant_range_first_sample, sar_meta.range_spacing,
-                                          alus::asar::specification::REFERENCE_RANGE});
             auto srgr_dest = subsetted_raster.ReleaseMemory();
             SlantRangeToGroundRangeInterpolation(sar_meta, d_workspace.GetAs<float>(), srgr_dest.GetAs<float>());
             DevicePaddedImage stats_image;

@@ -89,7 +89,6 @@ __global__ void CalibrateClampToBigEndianDetected(const float* data, int x_size,
     if (x < x_size && y < y_size) {
         auto pix = data[src_idx];
         float val = pix * calibration_constant;
-        val = 10 * log10f(val);  // is IMP log scaled? S1 GRD is? TODO investigate
         const uint16_t result = static_cast<uint16_t>(std::min<float>(val, UINT16_MAX));
 
         // |HEADER...|packet data....................................|
