@@ -280,8 +280,8 @@ void FillGeoLocationAds(int az_idx, int az_last, const SARMetadata& sar_meta, Ge
     const int n = std::size(geo.first_line_tie_points.lats);
     geo.first_zero_doppler_time = PtimeToMjd(first);
     geo.last_zero_doppler_time = PtimeToMjd(last);
-    geo.line_num = az_idx;
-    geo.num_lines = az_last - az_idx;
+    geo.line_num = az_idx + 1;
+    geo.num_lines = az_last - az_idx + 1;
 
     geo.sub_sat_track = 0.0;  // TODO
     const int range_size = sar_meta.img.range_size;
@@ -523,10 +523,11 @@ std::vector<uint8_t> ConstructEnvisatFileHeader(EnvisatSubFiles& header_files, c
 
             static_assert(size == 521);
 
-            int step = sar_meta.img.azimuth_size / (n - 1);
+            float step = ((float) sar_meta.img.azimuth_size) / n;
             for (size_t i = 0; i < n; i++) {
-                int az_idx = i * sar_meta.img.azimuth_size / (n - 1);
-                FillGeoLocationAds(az_idx, az_idx + step - 1, sar_meta, header_files.geolocation_grid[i]);
+                int az_idx = round(i * step);
+                int az_last = round((i+1) * step) - 1;
+                FillGeoLocationAds(az_idx, az_last, sar_meta, header_files.geolocation_grid[i]);
                 header_files.geolocation_grid[i].BSwap();
             }
             sph.dsds[8].SetInternalDSD("GEOLOCATION GRID ADS", 'A', file_offset, n, size);
