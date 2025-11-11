@@ -51,6 +51,7 @@ __global__ void CalibrateClampToBigEndian(const cufftComplex* data, int x_size_s
         // ...
         const int dest_idx = (y * mds_x_size) + record_header_size + (x * sizeof(IQ16));
         if (x == 0) {
+            int line_num = y + 1;
             dest_space[dest_idx - 17] = static_cast<char>((days[y] >> 24) & 0x00FF);
             dest_space[dest_idx - 16] = static_cast<char>((days[y] >> 16) & 0x00FF);
             dest_space[dest_idx - 15] = static_cast<char>((days[y] >> 8) & 0x00FF);
@@ -64,10 +65,10 @@ __global__ void CalibrateClampToBigEndian(const cufftComplex* data, int x_size_s
             dest_space[dest_idx - 7] = static_cast<char>((microns[y] >> 8) & 0x00FF);
             dest_space[dest_idx - 6] = static_cast<char>(microns[y] & 0x00FF);
             dest_space[dest_idx - 5] = 0x00;
-            dest_space[dest_idx - 4] = static_cast<char>((y >> 24) & 0x00FF);
-            dest_space[dest_idx - 3] = static_cast<char>((y >> 16) & 0x00FF);
-            dest_space[dest_idx - 2] = static_cast<char>((y >> 8) & 0x00FF);
-            dest_space[dest_idx - 1] = static_cast<char>(y & 0x00FF);
+            dest_space[dest_idx - 4] = static_cast<char>((line_num >> 24) & 0x00FF);
+            dest_space[dest_idx - 3] = static_cast<char>((line_num >> 16) & 0x00FF);
+            dest_space[dest_idx - 2] = static_cast<char>((line_num >> 8) & 0x00FF);
+            dest_space[dest_idx - 1] = static_cast<char>(line_num & 0x00FF);
         }
 
         dest_space[dest_idx] = static_cast<char>(result.i & 0x00FF);
@@ -89,6 +90,7 @@ __global__ void CalibrateClampToBigEndianDetected(const float* data, int x_size,
     if (x < x_size && y < y_size) {
         auto pix = data[src_idx];
         float val = pix * calibration_constant;
+        val = sqrt(val);
         const uint16_t result = static_cast<uint16_t>(std::min<float>(val, UINT16_MAX));
 
         // |HEADER...|packet data....................................|
@@ -96,6 +98,7 @@ __global__ void CalibrateClampToBigEndianDetected(const float* data, int x_size,
         // ...
         const int dest_idx = (y * mds_x_size) + record_header_size + (x * sizeof(uint16_t));
         if (x == 0) {
+            int line_num = y + 1;
             dest_space[dest_idx - 17] = static_cast<char>((days[y] >> 24) & 0x00FF);
             dest_space[dest_idx - 16] = static_cast<char>((days[y] >> 16) & 0x00FF);
             dest_space[dest_idx - 15] = static_cast<char>((days[y] >> 8) & 0x00FF);
@@ -109,10 +112,10 @@ __global__ void CalibrateClampToBigEndianDetected(const float* data, int x_size,
             dest_space[dest_idx - 7] = static_cast<char>((microns[y] >> 8) & 0x00FF);
             dest_space[dest_idx - 6] = static_cast<char>(microns[y] & 0x00FF);
             dest_space[dest_idx - 5] = 0x00;
-            dest_space[dest_idx - 4] = static_cast<char>((y >> 24) & 0x00FF);
-            dest_space[dest_idx - 3] = static_cast<char>((y >> 16) & 0x00FF);
-            dest_space[dest_idx - 2] = static_cast<char>((y >> 8) & 0x00FF);
-            dest_space[dest_idx - 1] = static_cast<char>(y & 0x00FF);
+            dest_space[dest_idx - 4] = static_cast<char>((line_num >> 24) & 0x00FF);
+            dest_space[dest_idx - 3] = static_cast<char>((line_num >> 16) & 0x00FF);
+            dest_space[dest_idx - 2] = static_cast<char>((line_num >> 8) & 0x00FF);
+            dest_space[dest_idx - 1] = static_cast<char>(line_num & 0x00FF);
         }
 
         dest_space[dest_idx] = static_cast<char>(result & 0x00FF);
