@@ -75,6 +75,7 @@ struct SARMetadata {
     double azimuth_spacing;
     double slant_range_first_sample;
     boost::posix_time::ptime first_line_time;
+    boost::posix_time::ptime last_line_time;
     boost::posix_time::ptime center_time;
     struct {
         bool applied;
@@ -88,8 +89,7 @@ struct SARMetadata {
 };
 
 inline boost::posix_time::ptime CalcAzimuthTime(const SARMetadata& meta, int azimuth_idx) {
-    uint32_t us = meta.line_time_interval * azimuth_idx * 1e6;
-    return meta.first_line_time + boost::posix_time::microseconds(us);
+    return meta.first_line_time + (meta.last_line_time - meta.first_line_time) * azimuth_idx / (meta.img.azimuth_size-1);
 }
 
 inline double CalcSlantRange(const SARMetadata& metadata, int range_pixel) {

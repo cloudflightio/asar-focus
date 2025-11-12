@@ -499,6 +499,7 @@ void AssembleMetadataFrom(std::vector<envformat::CommonPacketMetadata>& parsed_m
 
     auto init_xyz = Geo2xyzWgs84(init_guess_lat, init_guess_lon, 0);
     sar_meta.first_line_time = asar_meta.sensing_start;
+    sar_meta.last_line_time = asar_meta.sensing_stop;
     const int center_az_idx = sar_meta.img.azimuth_size / 2;
 
     const double slant_range_center =
