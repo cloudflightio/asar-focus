@@ -123,22 +123,21 @@ __global__ void CalibrateClampToBigEndianDetected(const float* data, int x_size,
     }
 }
 
-std::vector<mjd> calc_zero_doppler_times(boost::posix_time::ptime start, boost::posix_time::ptime end, int y_size) {
-    boost::posix_time::time_duration interval = (end - start);
+std::vector<mjd> calc_zero_doppler_times(SARMetadata &meta) {
     std::vector<mjd> zero_doppler_times{};
-    for (int i = 0; i < y_size; i++) {
-        zero_doppler_times.push_back(PtimeToMjd(start + interval * i/(y_size-1)));
+    for (int i = 0; i < meta.img.azimuth_size; i++) {
+        zero_doppler_times.push_back(PtimeToMjd(CalcAzimuthTime(meta, i)));
     }
     return zero_doppler_times;
 }
 
 void ConditionResultsSLC(DevicePaddedImage& img, char* dest_space, size_t record_header_size,
-                         float calibration_constant, ASARMetadata &asar_meta) {
+                         float calibration_constant, SARMetadata &sar_meta) {
     const auto x_size_stride = img.XStride();  // Need to count for FFT padding when rows are concerned
     const auto x_size = img.XSize();
     const auto y_size = img.YSize();  // No need to calculate on Y padded FFT data
 
-    std::vector<mjd> zero_doppler_times = calc_zero_doppler_times(asar_meta.first_line_time, asar_meta.last_line_time, y_size);
+    std::vector<mjd> zero_doppler_times = calc_zero_doppler_times(sar_meta);
     std::vector<int> days;
     std::vector<uint> seconds, microns;
     for (mjd zdt : zero_doppler_times) {
@@ -155,10 +154,12 @@ void ConditionResultsSLC(DevicePaddedImage& img, char* dest_space, size_t record
     CHECK_CUDA_ERR(cudaGetLastError());
 }
 
-void ConditionResultsDetected(const float* d_img, char* d_dest_space, int range_size, int azimuth_size,
-                              size_t record_header_size, float calibration_constant, ASARMetadata &asar_meta) {
+void ConditionResultsDetected(const float* d_img, char* d_dest_space, size_t record_header_size, 
+                              float calibration_constant, SARMetadata &sar_meta) {
+    const auto range_size = sar_meta.img.range_size;
+    const auto azimuth_size = sar_meta.img.azimuth_size;
 
-    std::vector<mjd> zero_doppler_times = calc_zero_doppler_times(asar_meta.first_line_time, asar_meta.last_line_time, azimuth_size);
+    std::vector<mjd> zero_doppler_times = calc_zero_doppler_times(sar_meta);
     std::vector<int> days;
     std::vector<uint> seconds, microns;
     for (mjd zdt : zero_doppler_times) {

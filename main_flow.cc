@@ -201,14 +201,13 @@ AzimuthRangeWindow CalcResultsWindow(double doppler_centroid_constant_term, size
 }
 
 void FormatResultsSLC(DevicePaddedImage& img, char* dest_space, size_t record_header_size, float calibration_constant,
-                      ASARMetadata &asar_meta) {
-    envformat::ConditionResultsSLC(img, dest_space, record_header_size, calibration_constant, asar_meta);
+                      SARMetadata &sar_meta) {
+    envformat::ConditionResultsSLC(img, dest_space, record_header_size, calibration_constant, sar_meta);
 }
 
-void FormatResultsDetected(const float* d_img, char* dest_space, int range_size, int azimuth_size,
-                           size_t record_header_size, float calibration_constant, ASARMetadata &asar_meta) {
-    envformat::ConditionResultsDetected(d_img, dest_space, range_size, azimuth_size, record_header_size,
-                                        calibration_constant, asar_meta);
+void FormatResultsDetected(const float* d_img, char* dest_space, size_t record_header_size, float calibration_constant,
+                           SARMetadata &sar_meta) {
+    envformat::ConditionResultsDetected(d_img, dest_space, record_header_size, calibration_constant, sar_meta);
 }
 
 void StorePlots(std::string output_path, std::string product_name, const SARMetadata& sar_metadata) {
