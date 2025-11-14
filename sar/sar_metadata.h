@@ -93,7 +93,13 @@ inline boost::posix_time::ptime CalcAzimuthTime(const SARMetadata& meta, int azi
 }
 
 inline double CalcSlantRange(const SARMetadata& metadata, int range_pixel) {
-    return metadata.slant_range_first_sample + range_pixel * metadata.range_spacing;
+    const double ground_range = range_pixel * metadata.range_spacing;
+    if (metadata.srgr.applied) {
+        const double slant_from_first =
+            Polyval(metadata.srgr.grsr_poly.data(), metadata.srgr.grsr_poly.size(), ground_range);
+        return metadata.slant_range_first_sample + slant_from_first;
+    }
+    return metadata.slant_range_first_sample + ground_range;
 }
 
 inline double CalcVr(const SARMetadata& metadata, int range_pixel) {

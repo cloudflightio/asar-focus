@@ -288,12 +288,6 @@ void FillGeoLocationAds(int az_idx, int az_last, const SARMetadata& sar_meta, Ge
     for (int i = 0; i < n; i++) {
         const int range_samp = i * range_size / (n - 1);
         double R = CalcSlantRange(sar_meta, range_samp);
-        if (sar_meta.srgr.applied) {
-            const double ground_range = range_samp * sar_meta.range_spacing;
-            const double slant_from_first =
-                Polyval(sar_meta.srgr.grsr_poly.data(), sar_meta.srgr.grsr_poly.size(), ground_range);
-            R = sar_meta.slant_range_first_sample + slant_from_first;
-        }
         constexpr double c = 299792458;
         double two_way_slant_time = 2 * (R / c) * 1e9;
         {
@@ -394,9 +388,9 @@ std::vector<uint8_t> ConstructEnvisatFileHeader(EnvisatSubFiles& header_files, c
             // todo fast time adjustment
             Velocity3D vel = {osv.x_vel, osv.y_vel, osv.z_vel};
             GeoPos3D pos = {osv.x_pos, osv.y_pos, osv.z_pos};
-            double r_near = sar_meta.slant_range_first_sample;
-            double r_mid = r_near + sar_meta.range_spacing * sar_meta.img.range_size / 2;
-            double r_far = r_near + sar_meta.range_spacing * sar_meta.img.range_size;
+            double r_near = CalcSlantRange(sar_meta, 0);
+            double r_mid = CalcSlantRange(sar_meta, (sar_meta.img.range_size - 1) / 2);
+            double r_far = CalcSlantRange(sar_meta, sar_meta.img.range_size - 1);
             auto near = RangeDopplerGeoLocate(vel, pos, sar_meta.center_point, r_near);
             auto mid = RangeDopplerGeoLocate(vel, pos, sar_meta.center_point, r_mid);
             auto far = RangeDopplerGeoLocate(vel, pos, sar_meta.center_point, r_far);
@@ -408,9 +402,9 @@ std::vector<uint8_t> ConstructEnvisatFileHeader(EnvisatSubFiles& header_files, c
             // todo fast time adjustment
             Velocity3D vel = {osv.x_vel, osv.y_vel, osv.z_vel};
             GeoPos3D pos = {osv.x_pos, osv.y_pos, osv.z_pos};
-            double r_near = sar_meta.slant_range_first_sample;
-            double r_mid = r_near + sar_meta.range_spacing * sar_meta.img.range_size / 2;
-            double r_far = r_near + sar_meta.range_spacing * sar_meta.img.range_size;
+            double r_near = CalcSlantRange(sar_meta, 0);
+            double r_mid = CalcSlantRange(sar_meta, (sar_meta.img.range_size - 1) / 2);
+            double r_far = CalcSlantRange(sar_meta, sar_meta.img.range_size - 1);
             auto near = RangeDopplerGeoLocate(vel, pos, sar_meta.center_point, r_near);
             auto mid = RangeDopplerGeoLocate(vel, pos, sar_meta.center_point, r_mid);
             auto far = RangeDopplerGeoLocate(vel, pos, sar_meta.center_point, r_far);
