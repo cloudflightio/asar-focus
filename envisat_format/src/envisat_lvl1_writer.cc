@@ -284,9 +284,8 @@ void FillGeoLocationAds(int az_idx, int az_last, const SARMetadata& sar_meta, Ge
     geo.num_lines = az_last - az_idx + 1;
 
     geo.sub_sat_track = 0.0;  // TODO
-    const int range_size = sar_meta.img.range_size;
     for (int i = 0; i < n; i++) {
-        const int range_samp = i * range_size / (n - 1);
+        const int range_samp = i * (sar_meta.img.range_size - 1) / (n - 1);
         double R = CalcSlantRange(sar_meta, range_samp);
         constexpr double c = 299792458;
         double two_way_slant_time = 2 * (R / c) * 1e9;
