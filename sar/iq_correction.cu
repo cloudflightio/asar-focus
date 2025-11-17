@@ -37,7 +37,7 @@ constexpr int REDUCE_BLOCK_SIZE = 1024;
  */
 
 
-__global__ void GainCorrectionReduction(const cufftComplex* src, int x_size, int y_size, float* i_result_arr,
+__global__ void GainCorrectionReduction(const cufftComplex* src, int x_size, int x_stride, int y_size, float* i_result_arr,
                                         float* q_result_arr) {
     __shared__ float i_sq_shared_acc[REDUCE_BLOCK_SIZE];
     __shared__ float q_sq_shared_acc[REDUCE_BLOCK_SIZE];
@@ -53,7 +53,7 @@ __global__ void GainCorrectionReduction(const cufftComplex* src, int x_size, int
     double q_sq_sum = 0.0;
     for (int y = y_start; y < y_size; y += y_step) {
         for (int x = x_start; x < x_size; x += x_step) {
-            int idx = (y * x_size) + x;
+            int idx = (y * x_stride) + x;
             auto sample = src[idx];
             float i = sample.x;
             float q = sample.y;
@@ -87,7 +87,7 @@ __global__ void GainCorrectionReduction(const cufftComplex* src, int x_size, int
     }
 }
 
-__global__ void PhaseCorrectionReduction(const cufftComplex* src, int x_size, int y_size, float* iq_result_arr,
+__global__ void PhaseCorrectionReduction(const cufftComplex* src, int x_size, int x_stride, int y_size, float* iq_result_arr,
                                          float* i_sq_result_arr) {
     __shared__ double iq_shared_acc[REDUCE_BLOCK_SIZE];
     __shared__ double i_sq_shared_acc[REDUCE_BLOCK_SIZE];
@@ -103,7 +103,7 @@ __global__ void PhaseCorrectionReduction(const cufftComplex* src, int x_size, in
     double i_sq_sum = 0.0;
     for (int y = y_start; y < y_size; y += y_step) {
         for (int x = x_start; x < x_size; x += x_step) {
-            int idx = (y * x_size) + x;
+            int idx = (y * x_stride) + x;
             auto sample = src[idx];
             float i = sample.x;
             float q = sample.y;
@@ -137,11 +137,11 @@ __global__ void PhaseCorrectionReduction(const cufftComplex* src, int x_size, in
     }
 }
 
-__global__ void CorrectDCBias(cufftComplex* data, int x_size, int y_size, float dc_i, float dc_q) {
+__global__ void CorrectDCBias(cufftComplex* data, int x_size, int x_stride, int y_size, float dc_i, float dc_q) {
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
 
-    const int idx = x + y * x_size;
+    const int idx = x + y * x_stride;
 
     if (x < x_size && y < y_size) {
         data[idx].x -= dc_i;
@@ -149,22 +149,22 @@ __global__ void CorrectDCBias(cufftComplex* data, int x_size, int y_size, float 
     }
 }
 
-__global__ void ApplyGainCorrection(cufftComplex* data, int x_size, int y_size, float i_gain) {
+__global__ void ApplyGainCorrection(cufftComplex* data, int x_size, int x_stride, int y_size, float i_gain) {
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
 
-    const int idx = (y * x_size) + x;
+    const int idx = (y * x_stride) + x;
 
     if (x < x_size && y < y_size) {
         data[idx].x /= i_gain;
     }
 }
 
-__global__ void ApplyPhaseCorrection(cufftComplex* data, int x_size, int y_size, float sin_corr, float cos_corr) {
+__global__ void ApplyPhaseCorrection(cufftComplex* data, int x_size, int x_stride, int y_size, float sin_corr, float cos_corr) {
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
 
-    int idx = (y * x_size) + x;
+    int idx = (y * x_stride) + x;
 
     auto pix = data[idx];
     float i = pix.x;
@@ -195,7 +195,8 @@ void RawDataCorrection(DevicePaddedImage& img, CorrectionParams par, SARResults&
     CHECK_CUDA_ERR(cudaMalloc(&d_reduction_buffer2, red_byte_sz));
     CudaMallocCleanup clean2(d_reduction_buffer2);
     const int y_size = img.YSize();
-    const int x_size = img.XStride();
+    const int x_size = img.XSize();
+    const int x_stride = img.XStride();
 
     {
         auto mean = img.CalcMean(par.n_total_samples);
@@ -211,7 +212,7 @@ void RawDataCorrection(DevicePaddedImage& img, CorrectionParams par, SARResults&
         {
             dim3 block_sz(16, 16);
             dim3 grid_sz((x_size + 15) / 16, (y_size + 15) / 16);
-            CorrectDCBias<<<grid_sz, block_sz>>>(img.Data(), x_size, y_size, results.dc_i, results.dc_q);
+            CorrectDCBias<<<grid_sz, block_sz>>>(img.Data(), x_size, x_stride, y_size, results.dc_i, results.dc_q);
         }
     }
 
@@ -225,7 +226,7 @@ void RawDataCorrection(DevicePaddedImage& img, CorrectionParams par, SARResults&
         {
             dim3 block_sz(REDUCE_BLOCK_SIZE, 1);
             dim3 grid_sz(1, n_reduce_blocks);
-            GainCorrectionReduction<<<grid_sz, block_sz>>>(img.Data(), x_size, y_size, d_i_sq_sum, d_q_sq_sum);
+            GainCorrectionReduction<<<grid_sz, block_sz>>>(img.Data(), x_size, x_stride, y_size, d_i_sq_sum, d_q_sq_sum);
         }
 
         double i_sq_sum = SumSmallDeviceArray(d_i_sq_sum, n_reduce_blocks);
@@ -237,7 +238,7 @@ void RawDataCorrection(DevicePaddedImage& img, CorrectionParams par, SARResults&
         {
             dim3 block_sz(16, 16);
             dim3 grid_sz((x_size + 15) / 16, (y_size + 15) / 16);
-            ApplyGainCorrection<<<grid_sz, block_sz>>>(img.Data(), x_size, y_size, i_gain);
+            ApplyGainCorrection<<<grid_sz, block_sz>>>(img.Data(), x_size, x_stride, y_size, i_gain);
         }
         LOGD << "Gain imbalance = " << results.iq_gain;
     }
@@ -250,7 +251,7 @@ void RawDataCorrection(DevicePaddedImage& img, CorrectionParams par, SARResults&
         {
             dim3 block_sz(REDUCE_BLOCK_SIZE, 1);
             dim3 grid_sz(1, n_reduce_blocks);
-            PhaseCorrectionReduction<<<grid_sz, block_sz>>>(img.Data(), x_size, y_size, d_iq_sum, d_i_sq_sum);
+            PhaseCorrectionReduction<<<grid_sz, block_sz>>>(img.Data(), x_size, x_stride, y_size, d_iq_sum, d_i_sq_sum);
         }
 
         double iq_sum = SumSmallDeviceArray(d_iq_sum, n_reduce_blocks);
@@ -268,7 +269,7 @@ void RawDataCorrection(DevicePaddedImage& img, CorrectionParams par, SARResults&
         {
             dim3 block_sz(16, 16);
             dim3 grid_sz((x_size + 15) / 16, (y_size + 15) / 16);
-            ApplyPhaseCorrection<<<grid_sz, block_sz>>>(img.Data(), x_size, y_size, sin_corr, cos_corr);
+            ApplyPhaseCorrection<<<grid_sz, block_sz>>>(img.Data(), x_size, x_stride, y_size, sin_corr, cos_corr);
         }
     }
 }
