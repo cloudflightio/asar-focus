@@ -146,10 +146,20 @@ void ConditionResultsSLC(DevicePaddedImage& img, char* dest_space, size_t record
         microns.push_back(zdt.micros);
     }
 
+    // move data to gpu
+    int *d_days;
+    uint *d_seconds, *d_microns;
+    CHECK_CUDA_ERR(cudaMalloc(&d_days, days.size() * sizeof(int)));
+    CHECK_CUDA_ERR(cudaMalloc(&d_seconds, seconds.size() * sizeof(uint)));
+    CHECK_CUDA_ERR(cudaMalloc(&d_microns, microns.size() * sizeof(uint)));
+    CHECK_CUDA_ERR(cudaMemcpy(d_days, days.data(), days.size() * sizeof(int), cudaMemcpyHostToDevice));
+    CHECK_CUDA_ERR(cudaMemcpy(d_seconds, seconds.data(), seconds.size() * sizeof(uint), cudaMemcpyHostToDevice));
+    CHECK_CUDA_ERR(cudaMemcpy(d_microns, microns.data(), microns.size() * sizeof(uint), cudaMemcpyHostToDevice));
+
     dim3 block_sz(16, 16);
     dim3 grid_sz((x_size_stride + 15) / 16, (y_size + 15) / 16);
     CalibrateClampToBigEndian<<<grid_sz, block_sz>>>(img.Data(), x_size_stride, x_size, y_size, dest_space,
-                                                     record_header_size, calibration_constant, days.data(), seconds.data(), microns.data());
+                                                     record_header_size, calibration_constant, d_days, d_seconds, d_microns);
     CHECK_CUDA_ERR(cudaDeviceSynchronize());
     CHECK_CUDA_ERR(cudaGetLastError());
 }
@@ -168,10 +178,20 @@ void ConditionResultsDetected(const float* d_img, char* d_dest_space, size_t rec
         microns.push_back(zdt.micros);
     }
 
+    // move data to gpu
+    int *d_days;
+    uint *d_seconds, *d_microns;
+    CHECK_CUDA_ERR(cudaMalloc(&d_days, days.size() * sizeof(int)));
+    CHECK_CUDA_ERR(cudaMalloc(&d_seconds, seconds.size() * sizeof(uint)));
+    CHECK_CUDA_ERR(cudaMalloc(&d_microns, microns.size() * sizeof(uint)));
+    CHECK_CUDA_ERR(cudaMemcpy(d_days, days.data(), days.size() * sizeof(int), cudaMemcpyHostToDevice));
+    CHECK_CUDA_ERR(cudaMemcpy(d_seconds, seconds.data(), seconds.size() * sizeof(uint), cudaMemcpyHostToDevice));
+    CHECK_CUDA_ERR(cudaMemcpy(d_microns, microns.data(), microns.size() * sizeof(uint), cudaMemcpyHostToDevice));
+
     dim3 block_sz(16, 16);
     dim3 grid_sz((range_size + 15) / 16, (azimuth_size + 15) / 16);
     CalibrateClampToBigEndianDetected<<<grid_sz, block_sz>>>(d_img, range_size, azimuth_size, d_dest_space,
-                                                             record_header_size, calibration_constant, days.data(), seconds.data(), microns.data());
+                                                             record_header_size, calibration_constant, d_days, d_seconds, d_microns);
     CHECK_CUDA_ERR(cudaDeviceSynchronize());
     CHECK_CUDA_ERR(cudaGetLastError());
 }
