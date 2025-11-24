@@ -162,6 +162,9 @@ void ConditionResultsSLC(DevicePaddedImage& img, char* dest_space, size_t record
                                                      record_header_size, calibration_constant, d_days, d_seconds, d_microns);
     CHECK_CUDA_ERR(cudaDeviceSynchronize());
     CHECK_CUDA_ERR(cudaGetLastError());
+    CHECK_CUDA_ERR(cudaFree(d_days));
+    CHECK_CUDA_ERR(cudaFree(d_seconds));
+    CHECK_CUDA_ERR(cudaFree(d_microns));
 }
 
 void ConditionResultsDetected(const float* d_img, char* d_dest_space, size_t record_header_size, 
@@ -194,6 +197,10 @@ void ConditionResultsDetected(const float* d_img, char* d_dest_space, size_t rec
                                                              record_header_size, calibration_constant, d_days, d_seconds, d_microns);
     CHECK_CUDA_ERR(cudaDeviceSynchronize());
     CHECK_CUDA_ERR(cudaGetLastError());
+    CHECK_CUDA_ERR(cudaFree(d_days));
+    CHECK_CUDA_ERR(cudaFree(d_seconds));
+    CHECK_CUDA_ERR(cudaFree(d_microns));
+}
 }
 
 __global__ void ConvertErsImSamplesToComplexKernel(const uint8_t* samples, int samples_range_size_bytes, int packets,
