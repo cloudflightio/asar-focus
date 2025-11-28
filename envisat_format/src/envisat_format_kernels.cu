@@ -201,7 +201,6 @@ void ConditionResultsDetected(const float* d_img, char* d_dest_space, size_t rec
     CHECK_CUDA_ERR(cudaFree(d_seconds));
     CHECK_CUDA_ERR(cudaFree(d_microns));
 }
-}
 
 __global__ void ConvertErsImSamplesToComplexKernel(const uint8_t* samples, int samples_range_size_bytes, int packets,
                                                    const uint16_t* swst_codes, uint16_t min_swst,
