@@ -43,9 +43,6 @@ __global__ void CalibrateClampToBigEndian(const cufftComplex* data, int x_size_s
         result.q = static_cast<int16_t>(
             alus::cuda::algorithm::clamp<float>(pix.y * calibration_constant, INT16_MIN, INT16_MAX));
 
-        result.i = alus::cuda::bit::Byteswap(result.i);
-        result.q = alus::cuda::bit::Byteswap(result.q);
-
         // |HEADER...|packet data....................................|
         // |HEADER...|packet data....................................|
         // ...
@@ -71,10 +68,10 @@ __global__ void CalibrateClampToBigEndian(const cufftComplex* data, int x_size_s
             dest_space[dest_idx - 1] = static_cast<char>(line_num & 0x00FF);
         }
 
-        dest_space[dest_idx] = static_cast<char>(result.i & 0x00FF);
-        dest_space[dest_idx + 1] = static_cast<char>((result.i >> 8) & 0x00FF);
-        dest_space[dest_idx + 2] = static_cast<char>(result.q & 0x00FF);
-        dest_space[dest_idx + 3] = static_cast<char>((result.q >> 8) & 0x00FF);
+        dest_space[dest_idx] = static_cast<char>((result.i >> 8) & 0x00FF);
+        dest_space[dest_idx + 1] = static_cast<char>(result.i & 0x00FF);
+        dest_space[dest_idx + 2] = static_cast<char>((result.q >> 8) & 0x00FF);
+        dest_space[dest_idx + 3] = static_cast<char>(result.q & 0x00FF);
     }
 }
 
@@ -89,8 +86,7 @@ __global__ void CalibrateClampToBigEndianDetected(const float* data, int x_size,
 
     if (x < x_size && y < y_size) {
         auto pix = data[src_idx];
-        float val = pix * calibration_constant;
-        val = sqrtf(val);
+        float val = sqrtf(pix) * calibration_constant;
         const uint16_t result = static_cast<uint16_t>(std::min<float>(val, UINT16_MAX));
 
         // |HEADER...|packet data....................................|
@@ -117,9 +113,9 @@ __global__ void CalibrateClampToBigEndianDetected(const float* data, int x_size,
             dest_space[dest_idx - 2] = static_cast<char>((line_num >> 8) & 0x00FF);
             dest_space[dest_idx - 1] = static_cast<char>(line_num & 0x00FF);
         }
-
-        dest_space[dest_idx] = static_cast<char>(result & 0x00FF);
-        dest_space[dest_idx + 1] = static_cast<char>((result >> 8) & 0x00FF);
+        
+        dest_space[dest_idx] = static_cast<char>((result >> 8) & 0x00FF);
+        dest_space[dest_idx + 1] = static_cast<char>(result & 0x00FF);
     }
 }
 
