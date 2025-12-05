@@ -26,10 +26,11 @@ namespace
 {
 void ApplyHammingWindow(std::vector<std::complex<float>>& data) {
     const size_t N = data.size();
+    const double coeff = 0.75; // original 0.54; TODO: take from CON file
     for (size_t i = 0; i < N; i++) {
         size_t n = i;
         double term = (2 * M_PI * n) / N;
-        double m = 0.54 - 0.46 * cos(term);
+        double m = coeff - (1 - coeff) * cos(term);
         data[i] *= m;
     }
 }
