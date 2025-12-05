@@ -174,7 +174,6 @@ void ParseConfFile(const ConfigurationFile& con_file, SARMetadata& sar_meta, ASA
             sar_meta.chirp.apply_window = false;
         } else if (strncmp(rg_window, "HAMMING", 7) == 0) {
             sar_meta.chirp.apply_window = true;
-            // NOTE alpha does not make sense with hamming? It should be fixed to 0.54?
             sar_meta.chirp.alpha = con_file.range_win_type_ims.window_coeff;
         } else {
             LOGW << "Defaulting range HAMMING WINDOW unknown = "
