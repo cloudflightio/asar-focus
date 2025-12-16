@@ -41,6 +41,7 @@
 #include "sar/az_multilook.cuh"
 #include "sar/focussing_details.h"
 #include "sar/fractional_doppler_centroid.cuh"
+#include "sar/gain_correction.cuh"
 #include "sar/iq_correction.cuh"
 #include "sar/processing_velocity_estimation.h"
 #include "sar/range_compression.cuh"
@@ -240,6 +241,10 @@ int main(int argc, char* argv[]) {
 
         TimeStop(gpu_transfer_start, "GPU image formation");
 
+        if (args.StoreIntensity()) {
+            alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "orig", img);
+        }
+
         auto correction_start = TimeStart();
         RawDataCorrection(img, {sar_meta.total_raw_samples}, sar_meta.results);
         img.ZeroNaNs();
@@ -277,6 +282,9 @@ int main(int argc, char* argv[]) {
         if (args.StoreIntensity()) {
             alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "rc", img);
         }
+
+        // GAINCORRECTION
+        GainCorrection(img, sar_meta, asar_meta, ins_file, xca);
 
         auto az_comp_start = TimeStart();
         DevicePaddedImage az_compressed_image;

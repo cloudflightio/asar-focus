@@ -49,6 +49,23 @@ inline double Distance(GeoPos3D xyz1, GeoPos3D xyz2) {
     return sqrt(dx * dx + dy * dy + dz * dz);
 }
 
+inline GeoPos3D Difference(GeoPos3D xyz1, GeoPos3D xyz2) {
+    return {xyz2.x-xyz1.x, xyz2.y-xyz1.y, xyz2.z-xyz1.z};
+}
+
+inline GeoPos3D Normalize(GeoPos3D xyz) {
+    double mag = sqrt(xyz.x * xyz.x + xyz.y * xyz.y + xyz.z * xyz.z);
+    return {xyz.x / mag, xyz.y / mag, xyz.z / mag};
+}
+
+inline double DotProduct(GeoPos3D xyz1, GeoPos3D xyz2) {
+    return xyz1.x * xyz2.x + xyz1.y * xyz2.y + xyz1.z * xyz2.z;
+}
+
+inline double Degree(GeoPos3D xyz1, GeoPos3D xyz2) {
+    return acos(DotProduct(Normalize(xyz1), Normalize(xyz2))) * 180.0/M_PI;
+}
+
 inline GeoPos3D Geo2xyzWgs84(double latitude, double longitude, double altitude) {
     double const lat = latitude * DTOR;
     double const lon = longitude * DTOR;

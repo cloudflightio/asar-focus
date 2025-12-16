@@ -13,6 +13,8 @@ set(SAR_SOURCES
         sar/az_multilook.cu
         sar/fractional_doppler_centroid.cu
         sar/fractional_doppler_centroid.cuh
+        sar/gain_correction.cu
+        sar/gain_correction.cuh
         sar/iq_correction.cu
         sar/iq_correction.cuh
         sar/orbit_state_vector.cc
