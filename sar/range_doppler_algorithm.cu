@@ -178,7 +178,7 @@ __global__ void RangeCellMigrationCorrection(const cufftComplex* data_in, int sr
 
         const cufftComplex data = data_in[first_idx + i];
 
-        const float sinc_offset = shift - range_walk_pixels + N / 2;
+        const float sinc_offset = shift - range_walk_pixels + N / 2 + 0.5;
 
         const float mult = WINDOW[i] * sinc(sinc_offset - i);
         i_sum += data.x * mult;
