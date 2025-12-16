@@ -75,6 +75,7 @@ struct SARMetadata {
     double azimuth_spacing;
     double slant_range_first_sample;
     boost::posix_time::ptime first_line_time;
+    boost::posix_time::ptime last_line_time;
     boost::posix_time::ptime center_time;
     struct {
         bool applied;
@@ -88,12 +89,17 @@ struct SARMetadata {
 };
 
 inline boost::posix_time::ptime CalcAzimuthTime(const SARMetadata& meta, int azimuth_idx) {
-    uint32_t us = meta.line_time_interval * azimuth_idx * 1e6;
-    return meta.first_line_time + boost::posix_time::microseconds(us);
+    return meta.first_line_time + (meta.last_line_time - meta.first_line_time) * azimuth_idx / (meta.img.azimuth_size-1);
 }
 
 inline double CalcSlantRange(const SARMetadata& metadata, int range_pixel) {
-    return metadata.slant_range_first_sample + range_pixel * metadata.range_spacing;
+    const double ground_range = range_pixel * metadata.range_spacing;
+    if (metadata.srgr.applied) {
+        const double slant_from_first =
+            Polyval(metadata.srgr.grsr_poly.data(), metadata.srgr.grsr_poly.size(), ground_range);
+        return metadata.slant_range_first_sample + slant_from_first;
+    }
+    return metadata.slant_range_first_sample + ground_range;
 }
 
 inline double CalcVr(const SARMetadata& metadata, int range_pixel) {

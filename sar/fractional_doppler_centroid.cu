@@ -133,7 +133,7 @@ std::vector<double> CalculateDopplerCentroid(const DevicePaddedImage& d_img, dou
         const double doppler_centroid = prf * fraction;
 
         dc_results.push_back(doppler_centroid);
-        dc_idx.push_back((x_begin + x_end) / 2);
+        dc_idx.push_back((x_begin + min(x_end, range_size)-1) / 2);
     }
 
     auto dc_poly = Polyfit(dc_idx, dc_results, POLY_ORDER);

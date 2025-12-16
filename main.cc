@@ -283,7 +283,6 @@ int main(int argc, char* argv[]) {
             alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "rc", img);
         }
 
-        // GAINCORRECTION
         GainCorrection(img, sar_meta, asar_meta, ins_file, xca);
 
         auto az_comp_start = TimeStart();
@@ -328,9 +327,6 @@ int main(int argc, char* argv[]) {
         if (alus::asar::specification::IsDetectedProduct(asar_meta.target_product_type)) {
             AzimuthMultiLook(subsetted_raster, d_workspace, sar_meta);
 
-            RangeSpreadingLossCorrection(d_workspace.GetAs<float>(), sar_meta.img.range_size, sar_meta.img.azimuth_size,
-                                         {sar_meta.slant_range_first_sample, sar_meta.range_spacing,
-                                          alus::asar::specification::REFERENCE_RANGE});
             auto srgr_dest = subsetted_raster.ReleaseMemory();
             SlantRangeToGroundRangeInterpolation(sar_meta, d_workspace.GetAs<float>(), srgr_dest.GetAs<float>());
             DevicePaddedImage stats_image;
@@ -373,8 +369,7 @@ int main(int argc, char* argv[]) {
             auto device_mds_buf = format_result_workspace.GetAs<char>();
             const float* d_deteced_img = srgr_dest.GetAs<float>();
 
-            alus::asar::mainflow::FormatResultsDetected(d_deteced_img, device_mds_buf, sar_meta.img.range_size,
-                                                        sar_meta.img.azimuth_size, record_header_bytes, tambov);
+            alus::asar::mainflow::FormatResultsDetected(d_deteced_img, device_mds_buf, record_header_bytes, tambov, sar_meta);
             CHECK_CUDA_ERR(
                 cudaMemcpy(mds.buf, device_mds_buf, mds.n_records * mds.record_size, cudaMemcpyDeviceToHost));
             if (!lvl1_file_handle.CanWrite(std::chrono::seconds(10))) {
@@ -431,7 +426,7 @@ int main(int argc, char* argv[]) {
             }
 
             auto device_mds_buf = d_workspace.GetAs<char>();
-            alus::asar::mainflow::FormatResultsSLC(subsetted_raster, device_mds_buf, record_header_bytes, tambov);
+            alus::asar::mainflow::FormatResultsSLC(subsetted_raster, device_mds_buf, record_header_bytes, tambov, sar_meta);
             TimeStop(result_correction_start, "Image results correction");
 
             auto mds_formation = TimeStart();

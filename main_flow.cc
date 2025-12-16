@@ -200,14 +200,14 @@ AzimuthRangeWindow CalcResultsWindow(double doppler_centroid_constant_term, size
     return az_rg_win;
 }
 
-void FormatResultsSLC(DevicePaddedImage& img, char* dest_space, size_t record_header_size, float calibration_constant) {
-    envformat::ConditionResultsSLC(img, dest_space, record_header_size, calibration_constant);
+void FormatResultsSLC(DevicePaddedImage& img, char* dest_space, size_t record_header_size, float calibration_constant,
+                      SARMetadata &sar_meta) {
+    envformat::ConditionResultsSLC(img, dest_space, record_header_size, calibration_constant, sar_meta);
 }
 
-void FormatResultsDetected(const float* d_img, char* dest_space, int range_size, int azimuth_size,
-                           size_t record_header_size, float calibration_constant) {
-    envformat::ConditionResultsDetected(d_img, dest_space, range_size, azimuth_size, record_header_size,
-                                        calibration_constant);
+void FormatResultsDetected(const float* d_img, char* dest_space, size_t record_header_size, float calibration_constant,
+                           SARMetadata &sar_meta) {
+    envformat::ConditionResultsDetected(d_img, dest_space, record_header_size, calibration_constant, sar_meta);
 }
 
 void StorePlots(std::string output_path, std::string product_name, const SARMetadata& sar_metadata) {
@@ -498,6 +498,7 @@ void AssembleMetadataFrom(std::vector<envformat::CommonPacketMetadata>& parsed_m
 
     auto init_xyz = Geo2xyzWgs84(init_guess_lat, init_guess_lon, 0);
     sar_meta.first_line_time = asar_meta.sensing_start;
+    sar_meta.last_line_time = asar_meta.sensing_stop;
     const int center_az_idx = sar_meta.img.azimuth_size / 2;
 
     const double slant_range_center =

@@ -24,12 +24,13 @@
 
 namespace
 {
-void ApplyHammingWindow(std::vector<std::complex<float>>& data) {
+void ApplyHammingWindow(std::vector<std::complex<float>>& data, double coeff) {
     const size_t N = data.size();
+    // const double coeff = 0.75; // original 0.54; TODO: take from CON file
     for (size_t i = 0; i < N; i++) {
         size_t n = i;
         double term = (2 * M_PI * n) / N;
-        double m = 0.54 - 0.46 * cos(term);
+        double m = coeff - (1 - coeff) * cos(term);
         data[i] *= m;
     }
 }
@@ -77,7 +78,7 @@ void GenerateChirpData(ChirpInfo& chirp, size_t padding_size) {
     chirp.time_domain.resize(n_samples);
 
     for (int64_t i = 0; i < n_samples; i++) {
-        const double t = (i - n_samples / 2) * dt;
+        const double t = (i - n_samples / 2 + 0.5) * dt;
         const double phase = M_PI * Kr * t * t;
         std::complex<float> iq(cos(phase), sin(phase));
 
@@ -88,7 +89,7 @@ void GenerateChirpData(ChirpInfo& chirp, size_t padding_size) {
 
     if(chirp.apply_window)
     {
-        ApplyHammingWindow(chirp.padded_windowed_data);
+        ApplyHammingWindow(chirp.padded_windowed_data, chirp.alpha);
     }
 
     chirp.padded_windowed_data.resize(padding_size);
