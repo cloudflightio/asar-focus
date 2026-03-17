@@ -41,6 +41,7 @@ struct ChirpInfo {
     double alpha;
     std::vector<std::complex<float>> time_domain;
     std::vector<std::complex<float>> padded_windowed_data;
+    std::vector<std::complex<float>> replica_pulses;
 };
 
 struct SARResults {

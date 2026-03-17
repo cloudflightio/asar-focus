@@ -173,6 +173,13 @@ void FillMainProcessingParams(const SARMetadata& sar_meta, const ASARMetadata& a
     }
 
     {
+        out.calibration_information.external_calibration_scaling_factor1 = 100000.0f;
+        LOGI << "out.calibration_information.external_calibration_scaling_factor1 = "
+             << out.calibration_information.external_calibration_scaling_factor1;
+        // TODO other cal info
+    }
+
+    {
         auto& comp = out.data_compression_information;
         CopyStrPad(comp.echo_comp, asar_meta.compression_metadata.echo_method);
         CopyStrPad(comp.echo_comp_ratio, asar_meta.compression_metadata.echo_ratio);

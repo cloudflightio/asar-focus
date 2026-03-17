@@ -66,9 +66,65 @@ void ScaleWindowed(std::vector<std::complex<float>>& chirp_data)
         el /= sqrt(scale);
     }
 }
+
+void KrFromReplica(ChirpInfo& chirp) {
+    if(chirp.replica_pulses.size() == 0)
+        return;
+    std::vector<double> idx;
+    std::vector<double> phase;
+    double phi0;
+    double i0;
+    double dphi;
+    float maxrep = 0.0f;
+    for(auto& rep: chirp.replica_pulses) {
+        maxrep = std::max(maxrep, abs(rep));
+    }
+    int crows=0, rowbeg=0, rowend=0;
+    for(int row=0; row < 24; row++) {
+        bool ok = true;
+        for(int j=0; j < 36; j++) {
+            float absrep = abs(chirp.replica_pulses[36*row+j]);
+            ok &= absrep == 0.0f || 2*absrep > maxrep;
+        }
+        if(!ok) {
+            if(crows > rowend-rowbeg) {
+                rowbeg = row-crows;
+                rowend = row;
+            }
+            crows=0;
+        } else {
+            crows++;
+        }
+    }
+    if(rowend-rowbeg < 12)
+        return;
+    for(int i=36*rowbeg; i < 36*rowend; i++) {
+        auto rep = chirp.replica_pulses[i];
+        if(std::abs(rep) == 0)
+            continue;
+        double phi = std::arg(rep);
+        if(phase.size() > 0) {
+            double phi1 = phase.size() > 1 ? phi0 + (i-i0) * dphi : phi0;
+            while(phi-phi1 < -M_PI)
+                phi += 2*M_PI;
+            while(phi-phi1 > +M_PI)
+                phi -= 2*M_PI;
+            dphi = (phi-phi0)/(i-i0);
+        }
+        i0 = i;
+        phi0 = phi;
+        idx.push_back(i0);
+        phase.push_back(phi0);
+    }
+    std::vector<double> poly = Polyfit(idx, phase, 2);
+    chirp.Kr = -poly[0] / M_PI * (chirp.range_sampling_rate * chirp.range_sampling_rate);
+}
+
 }
 
 void GenerateChirpData(ChirpInfo& chirp, size_t padding_size) {
+    KrFromReplica(chirp);
+
     double Kr = chirp.Kr;
 
     const int64_t n_samples = chirp.n_samples;

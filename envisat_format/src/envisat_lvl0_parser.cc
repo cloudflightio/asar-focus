@@ -147,7 +147,9 @@ void ParseLevel0Header(const std::vector<char>& file_data, ASARMetadata& asar_me
 
 RawSampleMeasurements ParseLevel0Packets(const std::vector<char>& file_data, size_t mdsr_offset_bytes,
                                          const std::vector<ForecastMeta>& entries_to_be_parsed,
-                                         alus::asar::specification::ProductTypes product_type, InstrumentFile& ins_file,
+                                         alus::asar::specification::ProductTypes product_type,
+                                         InstrumentFile& ins_file,
+                                         SARMetadata& sar_meta,
                                          std::vector<CommonPacketMetadata>& common_metadata) {
     if (entries_to_be_parsed.size() != common_metadata.size()) {
         throw std::runtime_error(
@@ -157,10 +159,13 @@ RawSampleMeasurements ParseLevel0Packets(const std::vector<char>& file_data, siz
     }
 
     if (product_type == specification::ASA_IM0) {
-        return ParseEnvisatLevel0ImPackets(file_data, mdsr_offset_bytes, entries_to_be_parsed, ins_file,
-                                           common_metadata);
+        return ParseEnvisatLevel0ImPackets(
+            file_data, mdsr_offset_bytes, entries_to_be_parsed, ins_file, common_metadata
+        );
     } else if (product_type == specification::SAR_IM0) {
-        return ParseErsLevel0ImPackets(file_data, mdsr_offset_bytes, entries_to_be_parsed, ins_file, common_metadata);
+        return ParseErsLevel0ImPackets(
+            file_data, mdsr_offset_bytes, entries_to_be_parsed, ins_file, sar_meta, common_metadata
+        );
     } else {
         throw std::invalid_argument("Unsupported product type supplied for level 0 packet parsing.");
     }

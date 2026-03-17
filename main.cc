@@ -158,7 +158,7 @@ int main(int argc, char* argv[]) {
         // Next level would be to allocate RAM buffer array async ahead - even if too much, but on average basis based
         // on sensing period and mode.
         const auto compressed_measurements = alus::asar::envformat::ParseLevel0Packets(
-            l0_ds, mdsr.ds_offset, packets_fetch_meta, product_type, ins_file, packets_metadata);
+            l0_ds, mdsr.ds_offset, packets_fetch_meta, product_type, ins_file, sar_meta, packets_metadata);
 
         alus::asar::mainflow::AssembleMetadataFrom(packets_metadata, asar_meta, sar_meta, ins_file,
                                                    compressed_measurements.max_samples,
@@ -257,7 +257,12 @@ int main(int argc, char* argv[]) {
         sar_meta.results.Vr_poly = EstimateProcessingVelocity(sar_meta);
         TimeStop(vr_start, "Vr estimation");
 
+        LOGD << "CHIRP sar_meta.chirp.Kr = " << sar_meta.chirp.Kr;
+        for(auto rep: sar_meta.chirp.replica_pulses) {
+            LOGD << "CHIRP REPLICA: " << rep;
+        }
         GenerateChirpData(sar_meta.chirp, rg_padded);
+        LOGD << "CHIRP sar_meta.chirp.Kr = " << sar_meta.chirp.Kr;
 
         auto dc_start = TimeStart();
         // Element from the back() indicates polynomial starting value.
@@ -338,8 +343,15 @@ int main(int argc, char* argv[]) {
             TimeStop(results_stats, "Calculated mean and std dev of the final cut area with amplitude values.");
 
             const auto swath_idx = alus::asar::envformat::SwathIdx(asar_meta.swath);
-            auto tambov = conf_file.process_gain_imp[swath_idx] / sqrt(xca.scaling_factor_im_precision_vv[swath_idx]);
+            auto tambov = xca.scaling_factor_im_slc_vv[swath_idx]; // TODO check why not use _im_precision_
+            tambov = 1200.0f;
+            if (instrument_type == alus::asar::specification::Instrument::SAR) { // TODO check why distinction
+                tambov = sqrt(tambov);
+                tambov = 30.0f;
+            }
+
             LOGI << "IMP tambov = " << tambov;
+
             // TODO - final statistic perhaps should be calculated on the final assembled image
             // not the raw focussed one?
             stats.at(0) *= tambov;
@@ -385,9 +397,11 @@ int main(int argc, char* argv[]) {
 
             // Best guess for final scaling as can be.
             const auto swath_idx = alus::asar::envformat::SwathIdx(asar_meta.swath);
-            auto tambov = conf_file.process_gain_ims[swath_idx] / sqrt(xca.scaling_factor_im_slc_vv[swath_idx]);
-            if (instrument_type == alus::asar::specification::Instrument::SAR) {
-                tambov /= (2 * 4);
+            auto tambov = xca.scaling_factor_im_slc_vv[swath_idx];
+            tambov = 400.0f;
+            if (instrument_type == alus::asar::specification::Instrument::SAR) { // TODO check why distinction
+                tambov = sqrt(tambov);
+                tambov = 10.0f;
             }
             // TODO - Final statistic perhaps should be calculated on the final assembled
             // image not the raw focussed one?
