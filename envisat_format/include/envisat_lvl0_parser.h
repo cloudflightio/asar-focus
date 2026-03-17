@@ -216,7 +216,9 @@ void ParseLevel0Header(const std::vector<char>& file_data, ASARMetadata& asar_me
 
 RawSampleMeasurements ParseLevel0Packets(const std::vector<char>& file_data, size_t mdsr_offset_bytes,
                                          const std::vector<ForecastMeta>& entries_to_be_parsed,
-                                         alus::asar::specification::ProductTypes product_type, InstrumentFile& ins_file,
+                                         alus::asar::specification::ProductTypes product_type,
+                                         InstrumentFile& ins_file,
+                                         SARMetadata& sar_meta,
                                          std::vector<CommonPacketMetadata>& common_metadata);
 
 void ParseConfFile(const ConfigurationFile& con_file, SARMetadata& sar_meta, ASARMetadata& asar_meta);

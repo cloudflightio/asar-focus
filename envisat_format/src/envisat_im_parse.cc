@@ -996,6 +996,7 @@ void ParseEnvisatLevel0ImPackets(const std::vector<char>& file_data, const DSD_l
     sar_meta.chirp.n_samples = std::round(sar_meta.chirp.pulse_duration / (1 / sar_meta.chirp.range_sampling_rate));
 
     sar_meta.chirp.pulse_bandwidth = sar_meta.chirp.Kr * sar_meta.chirp.pulse_duration;
+    LOGD << "--- envisat_im_ parse.cc ParseEnvisatLevel0ImPackets ---";
     LOGD << fmt::format("Chirp Kr = {}, n_samp = {}", sar_meta.chirp.Kr, sar_meta.chirp.n_samples);
     LOGD << fmt::format("tx pulse calc dur = {}",
                         asar_meta.tx_pulse_len_code * (1 / sar_meta.chirp.range_sampling_rate));
