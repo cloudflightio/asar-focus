@@ -478,10 +478,12 @@ RawSampleMeasurements ParseEnvisatLevel0ImPackets(const std::vector<char>& file_
         echo_meta.mode_id = *it;
         it++;
 
+        /*
         if (echo_meta.mode_id != 0x54) {
             throw std::runtime_error(
                 fmt::format("Expected only IM mode packets, but encountered mode ID {:#x}", echo_meta.mode_id));
         }
+        */
 
         // Wrap around counter indicating the time at which the first sampled window in
         // the source data was acquired. The lsb represents an interval of 15.26 µs nominal.
@@ -770,10 +772,12 @@ void ParseEnvisatLevel0ImPackets(const std::vector<char>& file_data, const DSD_l
         echo_meta.mode_id = *it;
         it++;
 
+        /*
         if (echo_meta.mode_id != 0x54) {
             throw std::runtime_error(
                 fmt::format("Expected only IM mode packets, but encountered mode ID {:#x}", echo_meta.mode_id));
         }
+        */
 
         // Wrap around counter indicating the time at which the first sampled window in
         // the source data was acquired. The lsb represents an interval of 15.26 µs nominal.

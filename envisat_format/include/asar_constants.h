@@ -30,7 +30,7 @@ float AuxTxMonitorConversion(uint16_t aux_tx);
 
 namespace alus::asar::specification {
 
-enum ProductTypes { SAR_IM0, ASA_IM0, SAR_IMS, SAR_IMP, ASA_IMS, ASA_IMP, UNIDENTIFIED };
+enum ProductTypes { SAR_IM0, ASA_IM0, SAR_IMS, SAR_IMP, ASA_IMS, ASA_IMP, ASA_AP0, ASA_APS, ASA_APP, UNIDENTIFIED };
 
 enum Instrument { SAR, ASAR };
 
@@ -38,16 +38,18 @@ constexpr double REFERENCE_RANGE = 800000;
 
 inline bool IsSLCProduct(ProductTypes product)
 {
-    return product == SAR_IMS || product == ASA_IMS;
+    return product == SAR_IMS || product == ASA_IMS || product == ASA_APS;
 }
 
 inline bool IsDetectedProduct(ProductTypes product)
 {
-    return product == SAR_IMP || product == ASA_IMP;
+    return product == SAR_IMP || product == ASA_IMP || product == ASA_APP;
 }
 
 constexpr std::string_view PRODUCT_NAME_SAR_IM0{"SAR_IM__0"};
 constexpr std::string_view PRODUCT_NAME_ASA_IM0{"ASA_IM__0"};
+constexpr std::string_view PRODUCT_NAME_ASA_APH{"ASA_APH_0"};
+constexpr std::string_view PRODUCT_NAME_ASA_APV{"ASA_APV_0"};
 
 ProductTypes GetProductTypeFrom(std::string_view product_name);
 ProductTypes TryDetermineTargetProductFrom(ProductTypes in_product, std::string_view user_defined_target_type);

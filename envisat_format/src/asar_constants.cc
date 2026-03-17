@@ -69,6 +69,10 @@ ProductTypes GetProductTypeFrom(std::string_view product_name) {
         return ProductTypes::ASA_IM0;
     } else if (boost::algorithm::starts_with(product_name, PRODUCT_NAME_SAR_IM0)) {
         return ProductTypes::SAR_IM0;
+    } else if (boost::algorithm::starts_with(product_name, PRODUCT_NAME_ASA_APH)) {
+        return ProductTypes::ASA_AP0;
+    } else if (boost::algorithm::starts_with(product_name, PRODUCT_NAME_ASA_APV)) {
+        return ProductTypes::ASA_AP0;
     } else {
         return ProductTypes::UNIDENTIFIED;
     }
@@ -93,6 +97,15 @@ ProductTypes TryDetermineTargetProductFrom(ProductTypes in_product, std::string_
         }
     }
 
+    if (in_product == ProductTypes::ASA_AP0) {
+        if (boost::iequals(user_defined_target_type, "APS")) {
+            return ProductTypes::ASA_APS;
+        }
+        if (boost::iequals(user_defined_target_type, "APP")) {
+            return ProductTypes::ASA_APP;
+        }
+    }
+
     throw std::runtime_error("Focussing '" + std::string(user_defined_target_type) +
                              "' product from given input is not supported or valid.");
 }
@@ -103,6 +116,10 @@ Instrument GetInstrumentFrom(ProductTypes product) {
     }
 
     if (product == ProductTypes::ASA_IM0 || product == ProductTypes::ASA_IMS) {
+        return Instrument::ASAR;
+    }
+
+    if (product == ProductTypes::ASA_AP0 || product == ProductTypes::ASA_APS) {
         return Instrument::ASAR;
     }
 

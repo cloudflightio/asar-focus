@@ -108,7 +108,8 @@ std::vector<ForecastMeta> FetchMeta(const std::vector<char>& file_data, boost::p
                                     specification::ProductTypes product_type, size_t& packets_before_start,
                                     size_t& packets_after_stop) {
     const auto mdsr = ParseMdsr(file_data);
-    if (product_type == specification::ASA_IM0) {
+    if (product_type == specification::ASA_IM0 ||
+        product_type == specification::ASA_AP0) {
         return FetchEnvisatL0ImForecastMeta(file_data, mdsr, packets_start_filter, packets_stop_filter,
                                             packets_before_start, packets_after_stop);
     } else if (product_type == specification::SAR_IM0) {
@@ -158,7 +159,8 @@ RawSampleMeasurements ParseLevel0Packets(const std::vector<char>& file_data, siz
                         entries_to_be_parsed.size(), common_metadata.size()));
     }
 
-    if (product_type == specification::ASA_IM0) {
+    if (product_type == specification::ASA_IM0 ||
+        product_type == specification::ASA_AP0) {
         return ParseEnvisatLevel0ImPackets(
             file_data, mdsr_offset_bytes, entries_to_be_parsed, ins_file, common_metadata
         );
