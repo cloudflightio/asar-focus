@@ -252,7 +252,7 @@ __global__ void AzimuthReferenceMultiply(cufftComplex* src_data, int src_width, 
         }
 
         // Adjust center frequency by doppler centroid, however keep the values in +- prf/2 for the matched filter
-        float fn_center = bin_freq - dc_offset;
+        float fn_center = bin_freq; // BUGFIX; remove: - dc_offset;
         if (fn_center > half_prf) {
             fn_center -= args.prf;
         } else if (fn_center < -half_prf) {
@@ -285,7 +285,7 @@ __global__ void AzimuthReferenceMultiply(cufftComplex* src_data, int src_width, 
         // exp(-1j * 2 * pi * dt * fn)
         cufftComplex shift;
         {
-            float shift_phase = 2 * float_pi * (dc_offset / Ka) * bin_freq;  // bin freq or dc offset frequency?
+            float shift_phase = 0; // BUGFIX; remove: 2 * float_pi * (dc_offset / Ka) * bin_freq;  // bin freq or dc offset frequency?
             float sin_val;
             float cos_val;
             sincos(shift_phase, &sin_val, &cos_val);
