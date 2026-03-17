@@ -72,11 +72,12 @@ void CheckAndLimitSensingStartEnd(boost::posix_time::ptime& product_sensing_star
         return;
     }
 
-    const auto user_start = alus::util::date_time::ToYyyyMmDd_HhMmSsFfffff(std::string(user_sensing_start.value()));
+    auto user_start = alus::util::date_time::ToYyyyMmDd_HhMmSsFfffff(std::string(user_sensing_start.value()));
     if (user_start < product_sensing_start) {
-        LOGE << "User specified sensing start '" << boost::posix_time::to_simple_string(user_start)
+        LOGI << "User specified sensing start '" << boost::posix_time::to_simple_string(user_start)
              << "' is earlier than product's packets - " << boost::posix_time::to_simple_string(product_sensing_start);
-        exit(alus::asar::status::EXIT_CODE::INVALID_ARGUMENT);
+        user_start = product_sensing_start;
+        // exit(alus::asar::status::EXIT_CODE::INVALID_ARGUMENT);
     }
 
     if (user_start > product_sensing_stop) {
@@ -92,17 +93,18 @@ void CheckAndLimitSensingStartEnd(boost::posix_time::ptime& product_sensing_star
         return;
     }
 
-    const auto user_end = alus::util::date_time::ToYyyyMmDd_HhMmSsFfffff(std::string(user_sensing_end.value()));
+    auto user_end = alus::util::date_time::ToYyyyMmDd_HhMmSsFfffff(std::string(user_sensing_end.value()));
     if (user_end < user_start) {
         LOGE << "Invalid sensing end time specified, because it is earlier than start.";
         exit(alus::asar::status::EXIT_CODE::INVALID_ARGUMENT);
     }
 
     if (user_end > product_sensing_stop) {
-        LOGE << "User specified sensing end '" << boost::posix_time::to_simple_string(user_end)
+        LOGI << "User specified sensing end '" << boost::posix_time::to_simple_string(user_end)
              << "' is later than product's sensing end time - "
              << boost::posix_time::to_simple_string(product_sensing_stop);
-        exit(alus::asar::status::EXIT_CODE::INVALID_ARGUMENT);
+        user_end = product_sensing_stop;
+        // exit(alus::asar::status::EXIT_CODE::INVALID_ARGUMENT);
     }
 
     product_sensing_stop = user_end;
@@ -135,7 +137,8 @@ void TryFetchOrbit(alus::dorisorbit::Parsable& orbit_source, ASARMetadata& asar_
 void FetchAuxFiles(InstrumentFile& ins_file, ConfigurationFile& conf_file, envformat::aux::ExternalCalibration& xca,
                    std::optional<envformat::aux::Patc>& patc, ASARMetadata& asar_meta,
                    specification::ProductTypes product_type, std::string_view aux_path) {
-    if (product_type == alus::asar::specification::ProductTypes::ASA_IM0) {
+    if (product_type == alus::asar::specification::ProductTypes::ASA_IM0 ||
+        product_type == alus::asar::specification::ProductTypes::ASA_AP0) {
         FindINSFile(std::string(aux_path), asar_meta.sensing_start, ins_file, asar_meta.instrument_file);
         FindCONFile(std::string(aux_path), asar_meta.sensing_start, conf_file, asar_meta.configuration_file);
         envformat::aux::GetXca(aux_path, asar_meta.sensing_start, xca, asar_meta.external_calibration_file);
@@ -544,7 +547,8 @@ void ConvertRawSampleSetsToComplex(const envformat::RawSampleMeasurements& raw_m
     std::vector<uint16_t> swst_codes;
     uint16_t min_swst{UINT16_MAX};
     swst_codes.reserve(parsed_meta.size());
-    if (product_type == specification::ProductTypes::ASA_IM0) {
+    if (product_type == specification::ProductTypes::ASA_IM0 ||
+        product_type == specification::ProductTypes::ASA_AP0) {
         for (const auto& pm : parsed_meta) {
             swst_codes.push_back(pm.swst_code);
             min_swst = std::min(min_swst, pm.swst_code);
@@ -565,7 +569,8 @@ void ConvertRawSampleSetsToComplex(const envformat::RawSampleMeasurements& raw_m
         throw std::runtime_error("Unsupported product type for " + std::string(__FUNCTION__));
     }
 
-    if (product_type == specification::ProductTypes::ASA_IM0) {
+    if (product_type == specification::ProductTypes::ASA_IM0 ||
+        product_type == specification::ProductTypes::ASA_AP0) {
         std::vector<float> i_lut(4096);
         memcpy(i_lut.data(), ins_file.fbp.i_LUT_fbaq4, 4096 * sizeof(float));
         std::vector<float> q_lut(4096);
