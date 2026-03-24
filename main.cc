@@ -230,7 +230,29 @@ int main(int argc, char* argv[]) {
 
         LOGD << "FFT paddings: rg  = " << rg_size << "->" << rg_padded << " az = " << az_size << "->" << az_padded;
 
+        auto vr_start = TimeStart();
+        // TODO - Would give exactly the same results as in EstimateProcessingVelocity()'s sub step.
+        // Results would change after VR_poly and doppler_centroid_poly are updated ?!
+        auto aperture_pixels = CalcAperturePixels(sar_meta);
+        sar_meta.results.Vr_poly = EstimateProcessingVelocity(sar_meta);
+        TimeStop(vr_start, "Vr estimation");
+
+        LOGD << "CHIRP sar_meta.chirp.Kr = " << sar_meta.chirp.Kr;
+        for(auto rep: sar_meta.chirp.replica_pulses) {
+            LOGD << "CHIRP REPLICA: " << rep;
+        }
+        GenerateChirpData(sar_meta.chirp, rg_padded);
+        LOGD << "CHIRP sar_meta.chirp.Kr = " << sar_meta.chirp.Kr;
+
+        // WIP START
+        std::vector<bool> rx_pol_set;
+        for(bool rx_pol: rx_pol_set) {
+            if(rx_pol) {}
+        }
+        // WIP END
+
         auto gpu_transfer_start = TimeStart();
+
         DevicePaddedImage img;
         img.InitPadded(rg_size, az_size, rg_padded, az_padded);
         img.ZeroMemory();
@@ -249,20 +271,6 @@ int main(int argc, char* argv[]) {
         RawDataCorrection(img, {sar_meta.total_raw_samples}, sar_meta.results);
         img.ZeroNaNs();
         TimeStop(correction_start, "I/Q correction");
-
-        auto vr_start = TimeStart();
-        // TODO - Would give exactly the same results as in EstimateProcessingVelocity()'s sub step.
-        // Results would change after VR_poly and doppler_centroid_poly are updated ?!
-        auto aperture_pixels = CalcAperturePixels(sar_meta);
-        sar_meta.results.Vr_poly = EstimateProcessingVelocity(sar_meta);
-        TimeStop(vr_start, "Vr estimation");
-
-        LOGD << "CHIRP sar_meta.chirp.Kr = " << sar_meta.chirp.Kr;
-        for(auto rep: sar_meta.chirp.replica_pulses) {
-            LOGD << "CHIRP REPLICA: " << rep;
-        }
-        GenerateChirpData(sar_meta.chirp, rg_padded);
-        LOGD << "CHIRP sar_meta.chirp.Kr = " << sar_meta.chirp.Kr;
 
         auto dc_start = TimeStart();
         // Element from the back() indicates polynomial starting value.

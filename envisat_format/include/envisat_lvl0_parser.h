@@ -175,6 +175,7 @@ struct CommonPacketMetadata {
     mjd sensing_time;
     uint16_t swst_code;
     uint16_t pri_code;
+    bool rx_pol;
     uint64_t onboard_time;
     uint16_t sample_count;                    // Count of measurement I/Q samples, not equal to bytes.
     uint16_t measurement_array_length_bytes;  // Including any block information etc...

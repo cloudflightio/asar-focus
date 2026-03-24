@@ -278,6 +278,7 @@ inline void TransferMetadata(const EchoMeta& echo_meta, uint16_t measurement_byt
     common_meta.onboard_time = echo_meta.onboard_time;
     common_meta.pri_code = echo_meta.pri_code;
     common_meta.swst_code = echo_meta.swst_code;
+    common_meta.rx_pol = echo_meta.rx_pol;
     common_meta.sample_count = echo_meta.raw_samples;
     common_meta.measurement_array_length_bytes = measurement_bytes_length;
 
