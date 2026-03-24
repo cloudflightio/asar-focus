@@ -78,6 +78,13 @@ __device__ float sinc(float x) {
 }
 #endif
 
+__device__ float HAMMING(float coeff, float x) {
+    if(abs(x) > 0.5f) {
+        return 0.0f;
+    }
+    return coeff + (1.0f-coeff)*cosf(2*M_PI*x);
+}
+
 namespace {
 struct KernelArgs {
     // float Vr;  // TODO(priit) float vs double
@@ -201,114 +208,28 @@ __global__ void AzimuthReferenceMultiply(cufftComplex* src_data, int src_width, 
 
     if ((dst_x < src_width && dst_y < src_height)) {
         int src_idx = dst_x + src_x_stride * dst_y;
-
-        const float fft_bin_step = args.prf / src_height;
-
         const float dc = Polyval(args.dc_poly, dst_x);
-
-        const float dc_steps = std::roundf(dc / fft_bin_step);
-        const float dc_offset = dc_steps * fft_bin_step;
-        // find FFT bin frequency
-        float bin_freq = 0.0f;
-        if ((dst_y < src_height / 2)) {
-            bin_freq = dst_y * fft_bin_step;
-
-        } else {
-            bin_freq = (dst_y - src_height) * fft_bin_step;
-        }
-
-        // TODO is this usage of the doppler centroid correct?
-        // Multiple issues at play here:
-        // throw away bin locations
-        // matched filter center vs zero frequency - otherwise ghost in azimuth direction
-        // the resulting azimuth time domain shift and it's undoing by a linear ramp shift
-        // needs further investigation
-        const float half_prf = args.prf * 0.5f;
-        float abs_freq = bin_freq;
-        if (dc < 0.0f) {
-            if (bin_freq > half_prf + dc) {
-                abs_freq -= args.prf;
-            }
-        } else if (dc > 0.0f) {
-            if (abs_freq < -half_prf + dc) {
-                abs_freq += args.prf;
-            }
-        }
-
-        const float cutoff_hi = half_prf * args.azimuth_bandwidth_fraction + dc_offset;
-        const float cutoff_lo = -half_prf * args.azimuth_bandwidth_fraction + dc_offset;
-
-        if (abs_freq < cutoff_lo || abs_freq > cutoff_hi) {
-            // frequency in the throwaway region
-            // ex prf = 2000Hz, dc = -600Hz, fraction = 0.8 => cut low = +-1400Hz, cut high = +200Hz
-            src_data[src_idx] = {};
-            return;
-        } else { // WINDOW
-            const float coeff = 0.75f;
-            const float x = (abs_freq - dc_offset) / (args.prf * args.azimuth_bandwidth_fraction);
-            const float w = coeff + (1 - coeff) * cosf(2*M_PI*x);
-            src_data[src_idx].x *= w;
-            src_data[src_idx].y *= w;
-        }
-
-        // Adjust center frequency by doppler centroid, however keep the values in +- prf/2 for the matched filter
-        float fn_center = bin_freq; // BUGFIX; remove: - dc_offset;
-        if (fn_center > half_prf) {
+        float fn_center = args.prf / src_height * dst_y;
+        if(fn_center > args.prf/2 + dc) {
             fn_center -= args.prf;
-        } else if (fn_center < -half_prf) {
-            fn_center += args.prf;
         }
-
-        // slant range at range pixel
+        float w = HAMMING(0.75f, (fn_center - dc) / (args.azimuth_bandwidth_fraction * args.prf));
         const double R0 = args.slant_range + args.range_spacing * dst_x;
-
         const float Vr = Polyval(args.Vr_poly, dst_x);
         // Azimuth FM rate
         const float Ka = (2 * Vr * Vr) / (args.lambda * R0);
-
         // range Doppler domain matched filter at this frequency
         const float float_pi = M_PI;
         float mf_phase = (float_pi * fn_center * fn_center) / Ka;
-
-        // exp((-1j* pi * fn * fn) / Ka)
+        // w* exp((-1j* pi * fn * fn) / Ka)
         cufftComplex mf_val;
         {
             float sin_val;
             float cos_val;
             sincos(mf_phase, &sin_val, &cos_val);
-            mf_val.x = cos_val;
-            mf_val.y = -sin_val;
+            mf_val.x = cos_val * w;
+            mf_val.y = -sin_val *w;
         }
-
-        // the previous matched filter is not centered around zero due to doppler centroid
-        // a linear phase ramp should put this back to 0Hz, aka zero doppler position
-        // exp(-1j * 2 * pi * dt * fn)
-        cufftComplex shift;
-        {
-            float shift_phase = 0; // BUGFIX; remove: 2 * float_pi * (dc_offset / Ka) * bin_freq;  // bin freq or dc offset frequency?
-            float sin_val;
-            float cos_val;
-            sincos(shift_phase, &sin_val, &cos_val);
-            shift.x = cos_val;
-            shift.y = -sin_val;
-        }
-
-        mf_val = cuCmulf(mf_val, shift);
-
-        /* The place to do azimuth windowing, however this needs further investigation
-        if (args.apply_az_window) {
-            constexpr float alpha = 0.54f;  // hamming
-            constexpr float two_pi = 2 * M_PI;
-
-            // TODO investigate if this correct way to do frequency domain weighting, as discussed in
-            //  6.3.6 in Digital Processing of SAR Data
-            float weight = alpha - (1.0f - alpha) * cos(two_pi * (abs_freq - dc) / args.prf);
-            weight = 1.0f - weight;
-            mf_val.x *= weight;
-            mf_val.y *= weight;
-        }
-         */
-
         // application via f domain multiplication
         src_data[src_idx] = cuCmulf(src_data[src_idx], mf_val);
     }
