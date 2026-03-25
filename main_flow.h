@@ -87,11 +87,11 @@ void AssembleMetadataFrom(std::vector<envformat::CommonPacketMetadata>& parsed_m
 // separately now.
 void ConvertRawSampleSetsToComplex(const envformat::RawSampleMeasurements& raw_measurements,
                                    const std::vector<envformat::CommonPacketMetadata>& parsed_meta,
-                                   const SARMetadata& sar_meta, const InstrumentFile& ins_file,
-                                   specification::ProductTypes product_type, cufftComplex** d_converted_measurements);
+                                   const InstrumentFile& ins_file, specification::ProductTypes product_type,
+                                   std::vector<DevicePaddedImage>& imgs);
 
 void SubsetResultsAndReassembleMeta(DevicePaddedImage& azimuth_compressed_raster, AzimuthRangeWindow window,
-                                    std::vector<alus::asar::envformat::CommonPacketMetadata>& common_metadata,
+                                    std::vector<alus::asar::envformat::CommonPacketMetadata> common_metadata,
                                     ASARMetadata& asar_meta, SARMetadata& sar_meta, InstrumentFile& ins_file,
                                     alus::asar::specification::ProductTypes product_type, CudaWorkspace& workspace,
                                     DevicePaddedImage& subsetted_raster);

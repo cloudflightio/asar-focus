@@ -18,4 +18,21 @@
 
 #include "sar_metadata.h"
 
-void SlantRangeToGroundRangeInterpolation(SARMetadata& sar_meta, const float* d_slant_in, float* d_gr_out);
+// void *PrepareSlantRangeToGroundRangeInterpolation(SARMetadata& sar_meta);
+
+// void DoSlantRangeToGroundRangeInterpolation(void *pargs, const float* d_slant_in, float* d_gr_out);
+
+class SlantRangeToGroundRangeInterpolation {
+public:
+    struct KernelArgs {
+        float grsr_poly[5];
+        int out_x_size;
+        int in_x_size;
+        int y_size;
+        float slant_range_spacing;
+        float ground_spacing;
+    } args;
+    SlantRangeToGroundRangeInterpolation(const SARMetadata& sar_meta);
+    void apply(const float* d_slant_in, float* d_gr_out);
+    void adjust_meta(SARMetadata& sar_meta);
+};

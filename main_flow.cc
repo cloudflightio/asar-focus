@@ -534,17 +534,16 @@ void AssembleMetadataFrom(std::vector<envformat::CommonPacketMetadata>& parsed_m
 
 void ConvertRawSampleSetsToComplex(const envformat::RawSampleMeasurements& raw_measurements,
                                    const std::vector<envformat::CommonPacketMetadata>& parsed_meta,
-                                   const SARMetadata& sar_meta, const InstrumentFile& ins_file,
-                                   specification::ProductTypes product_type, cufftComplex** d_converted_measurements) {
-    const auto range_az_total_items = sar_meta.img.range_size * sar_meta.img.azimuth_size;
-    const auto range_az_total_bytes = range_az_total_items * sizeof(cufftComplex);
-    CHECK_CUDA_ERR(cudaMalloc(d_converted_measurements, range_az_total_bytes));
+                                   const InstrumentFile& ins_file, specification::ProductTypes product_type,
+                                   std::vector<DevicePaddedImage>& imgs) {
     constexpr auto CLEAR_VALUE = NAN;
     constexpr cufftComplex CLEAR_VALUE_COMPLEX{CLEAR_VALUE, CLEAR_VALUE};
     static_assert(sizeof(CLEAR_VALUE_COMPLEX) == sizeof(CLEAR_VALUE) * 2);
-    cuda::algorithm::Fill(*d_converted_measurements, range_az_total_items, CLEAR_VALUE_COMPLEX);
-
+    for(DevicePaddedImage &img: imgs) {
+        cuda::algorithm::Fill(img.Data(), img.XStride() * img.YStride(), CLEAR_VALUE_COMPLEX);
+    }
     std::vector<uint16_t> swst_codes;
+    std::vector<cufftComplex *> img_data;
     uint16_t min_swst{UINT16_MAX};
     swst_codes.reserve(parsed_meta.size());
     if (product_type == specification::ProductTypes::ASA_IM0 ||
@@ -552,6 +551,7 @@ void ConvertRawSampleSetsToComplex(const envformat::RawSampleMeasurements& raw_m
         for (const auto& pm : parsed_meta) {
             swst_codes.push_back(pm.swst_code);
             min_swst = std::min(min_swst, pm.swst_code);
+            img_data.push_back(imgs[pm.rx_pol % imgs.size()].Data());
         }
     } else if (product_type == specification::ProductTypes::SAR_IM0) {
         uint16_t prev_swst = parsed_meta.front().swst_code;
@@ -569,6 +569,7 @@ void ConvertRawSampleSetsToComplex(const envformat::RawSampleMeasurements& raw_m
         throw std::runtime_error("Unsupported product type for " + std::string(__FUNCTION__));
     }
 
+    DevicePaddedImage &img = imgs[0];
     if (product_type == specification::ProductTypes::ASA_IM0 ||
         product_type == specification::ProductTypes::ASA_AP0) {
         std::vector<float> i_lut(4096);
@@ -578,19 +579,19 @@ void ConvertRawSampleSetsToComplex(const envformat::RawSampleMeasurements& raw_m
         // Single entry length does not include 2 bytes of block data byte length.
         envformat::ConvertAsarImBlocksToComplex(
             raw_measurements.raw_samples.get(), raw_measurements.single_entry_length + 2,
-            raw_measurements.entries_total, swst_codes.data(), min_swst, *d_converted_measurements,
-            sar_meta.img.range_size, i_lut.data(), q_lut.data(), 4096);
+            raw_measurements.entries_total, swst_codes.data(), min_swst, img_data.data(),
+            img.XStride(), i_lut.data(), q_lut.data(), 4096);
     } else if (product_type == specification::ProductTypes::SAR_IM0) {
         envformat::ConvertErsImSamplesToComplex(raw_measurements.raw_samples.get(), raw_measurements.max_samples,
                                                 raw_measurements.entries_total, swst_codes.data(), min_swst,
-                                                *d_converted_measurements, sar_meta.img.range_size);
+                                                img.Data(), img.XStride());
     } else {
         throw std::runtime_error("Unsupported product type for " + std::string(__FUNCTION__));
     }
 }
 
 void SubsetResultsAndReassembleMeta(DevicePaddedImage& azimuth_compressed_raster, AzimuthRangeWindow window,
-                                    std::vector<alus::asar::envformat::CommonPacketMetadata>& common_metadata,
+                                    std::vector<alus::asar::envformat::CommonPacketMetadata> common_metadata,
                                     ASARMetadata& asar_meta, SARMetadata& sar_meta, InstrumentFile& ins_file,
                                     alus::asar::specification::ProductTypes product_type, CudaWorkspace& workspace,
                                     DevicePaddedImage& subsetted_raster) {

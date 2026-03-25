@@ -33,7 +33,7 @@ void ConvertErsImSamplesToComplex(const uint8_t* samples, size_t sample_count_pe
                                   size_t target_range_padded_samples);
 
 void ConvertAsarImBlocksToComplex(const uint8_t* block_samples, size_t block_samples_item_length_bytes, size_t records,
-                                  const uint16_t* swst_codes, uint16_t min_swst, cufftComplex* gpu_buffer,
+                                  const uint16_t* swst_codes, uint16_t min_swst, cufftComplex** img_data,
                                   size_t target_range_padded_samples, const float* i_lut_fbaq4,
                                   const float* q_lut_fbaq4, size_t lut_items);
 

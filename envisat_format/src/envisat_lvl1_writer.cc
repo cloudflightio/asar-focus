@@ -325,9 +325,7 @@ void FillGeoLocationAds(int az_idx, int az_last, const SARMetadata& sar_meta, Ge
 
 std::vector<uint8_t> ConstructEnvisatFileHeader(EnvisatSubFiles& header_files, const SARMetadata& sar_meta,
                                                 const ASARMetadata& asar_meta, const MDS& mds,
-                                                std::array<double, 4> statistics, std::string_view software_ver) {
-    static_assert(__builtin_offsetof(EnvisatSubFiles, main_processing_params) == 7516);
-
+                                                std::vector<std::array<double, 4>> statistics_vec, std::string_view software_ver) {
     std::string out_name = asar_meta.product_name;
     const bool is_detected = alus::asar::specification::IsDetectedProduct(asar_meta.target_product_type);
     const bool is_slc = !is_detected;
@@ -366,7 +364,7 @@ std::vector<uint8_t> ConstructEnvisatFileHeader(EnvisatSubFiles& header_files, c
         // set tot size later
 
         size_t tot = sizeof(header_files.mph) + sizeof(header_files.sph);
-        tot += sizeof(header_files.summary_quality);
+        tot += sizeof(header_files.summary_quality[0]) * statistics_vec.size();
         tot += sizeof(header_files.dop_centroid_coeffs);
         // TODO chirp params
         // tot += sizeof(header_files.chirp_params);
@@ -440,18 +438,20 @@ std::vector<uint8_t> ConstructEnvisatFileHeader(EnvisatSubFiles& header_files, c
 
         file_offset += sizeof(sph);
 
-        {
-            constexpr size_t size = sizeof(header_files.summary_quality);
-            static_assert(size == 170);
-            sph.dsds[0].SetInternalDSD("MDS1 SQ ADS", 'A', file_offset, 1, size);
-            file_offset += size;
-
-            FillSummaryQuality(sar_meta, asar_meta, statistics, header_files.summary_quality);
-            header_files.summary_quality.BSwap();
+        for(size_t i=0; i<2; i++) {
+            char dsname[20];
+            std::sprintf(dsname, "MDS%ld SQ ADS", i+1);
+            if(i < statistics_vec.size()) {
+                constexpr size_t size = sizeof(header_files.summary_quality[i]);
+                static_assert(size == 170);
+                sph.dsds[i].SetInternalDSD(dsname, 'A', file_offset, 1, size);
+                file_offset += size;
+                FillSummaryQuality(sar_meta, asar_meta, statistics_vec[i], header_files.summary_quality[i]);
+                header_files.summary_quality[i].BSwap();
+            } else {
+                sph.dsds[i].SetEmptyDSD(dsname, 'A');
+            }
         }
-
-        { sph.dsds[1].SetEmptyDSD("MDS2 SQ ADS", 'A'); }
-
         {
             constexpr size_t size = sizeof(header_files.main_processing_params);
             static_assert(size == 2009);
@@ -557,7 +557,9 @@ std::vector<uint8_t> ConstructEnvisatFileHeader(EnvisatSubFiles& header_files, c
     std::vector<uint8_t> out_buffer;
     append_packed_struct(out_buffer, header_files.mph);
     append_packed_struct(out_buffer, header_files.sph);
-    append_packed_struct(out_buffer, header_files.summary_quality);
+    for(size_t i = 0; i < statistics_vec.size(); i++) {
+        append_packed_struct(out_buffer, header_files.summary_quality[i]);
+    }
     append_packed_struct(out_buffer, header_files.main_processing_params);
     append_packed_struct(out_buffer, header_files.dop_centroid_coeffs);
     if (is_detected) {

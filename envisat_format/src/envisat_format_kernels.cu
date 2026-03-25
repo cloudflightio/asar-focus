@@ -244,7 +244,7 @@ void ConvertErsImSamplesToComplex(const uint8_t* samples, size_t sample_count_pe
 
 __global__ void ConvertAsarImBlocksToComplexKernel(const uint8_t* block_samples, int block_samples_item_length_bytes,
                                                    int records, const uint16_t* swst_codes, uint16_t min_swst,
-                                                   cufftComplex* gpu_buffer, int target_range_padded_samples,
+                                                   cufftComplex** img_data, int target_range_padded_samples,
                                                    const float* i_lut_fbaq4, const float* q_lut_fbaq4, int lut_items) {
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -291,13 +291,13 @@ __global__ void ConvertAsarImBlocksToComplexKernel(const uint8_t* block_samples,
         auto range_sample_index = block_set_sample_index - (block_index + 1);
         range_sample_index += (swst_codes[y] - min_swst);
         range_sample_index += (y * target_range_padded_samples);
-        gpu_buffer[range_sample_index].x = i_sample;
-        gpu_buffer[range_sample_index].y = q_sample;
+        img_data[y][range_sample_index].x = i_sample;
+        img_data[y][range_sample_index].y = q_sample;
     }
 }
 
 void ConvertAsarImBlocksToComplex(const uint8_t* block_samples, size_t block_samples_item_length_bytes, size_t records,
-                                  const uint16_t* swst_codes, uint16_t min_swst, cufftComplex* gpu_buffer,
+                                  const uint16_t* swst_codes, uint16_t min_swst, cufftComplex** img_data,
                                   size_t target_range_padded_samples, const float* i_lut_fbaq4,
                                   const float* q_lut_fbaq4, size_t lut_items) {
     const auto samples_total_bytes = records * block_samples_item_length_bytes;
@@ -307,6 +307,9 @@ void ConvertAsarImBlocksToComplex(const uint8_t* block_samples, size_t block_sam
     uint16_t* swst_codes_gpu;
     CHECK_CUDA_ERR(cudaMalloc(&swst_codes_gpu, records * sizeof(uint16_t)));
     CHECK_CUDA_ERR(cudaMemcpy(swst_codes_gpu, swst_codes, records * sizeof(uint16_t), cudaMemcpyHostToDevice));
+    cufftComplex** img_data_gpu;
+    CHECK_CUDA_ERR(cudaMalloc(&img_data_gpu, records * sizeof(cufftComplex *)));
+    CHECK_CUDA_ERR(cudaMemcpy(img_data_gpu, img_data, records * sizeof(cufftComplex *), cudaMemcpyHostToDevice));
     const auto lut_items_bytes = lut_items * sizeof(float);
     float* i_lut_fbaq4_gpu;
     CHECK_CUDA_ERR(cudaMalloc(&i_lut_fbaq4_gpu, lut_items_bytes));
@@ -320,7 +323,7 @@ void ConvertAsarImBlocksToComplex(const uint8_t* block_samples, size_t block_sam
     dim3 block_size(16, 16);
     dim3 grid_sz((x_size + 15) / 16, (y_size + 15) / 16);
     ConvertAsarImBlocksToComplexKernel<<<grid_sz, block_size>>>(
-        samples_gpu, block_samples_item_length_bytes, records, swst_codes_gpu, min_swst, gpu_buffer,
+        samples_gpu, block_samples_item_length_bytes, records, swst_codes_gpu, min_swst, img_data_gpu,
         target_range_padded_samples, i_lut_fbaq4_gpu, q_lut_fbaq4_gpu, lut_items);
     CHECK_CUDA_ERR(cudaDeviceSynchronize());
     CHECK_CUDA_ERR(cudaGetLastError());

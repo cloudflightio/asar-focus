@@ -679,6 +679,7 @@ RawSampleMeasurements ParseEnvisatLevel0ImPackets(const std::vector<char>& file_
     return raw_measurements;
 }
 
+/*
 void ParseEnvisatLevel0ImPackets(const std::vector<char>& file_data, const DSD_lvl0& mdsr, SARMetadata& sar_meta,
                                  ASARMetadata& asar_meta, cufftComplex** d_parsed_packets, InstrumentFile& ins_file,
                                  boost::posix_time::ptime packets_start_filter,
@@ -773,12 +774,12 @@ void ParseEnvisatLevel0ImPackets(const std::vector<char>& file_data, const DSD_l
         echo_meta.mode_id = *it;
         it++;
 
-        /*
+        / *
         if (echo_meta.mode_id != 0x54) {
             throw std::runtime_error(
                 fmt::format("Expected only IM mode packets, but encountered mode ID {:#x}", echo_meta.mode_id));
         }
-        */
+        * /
 
         // Wrap around counter indicating the time at which the first sampled window in
         // the source data was acquired. The lsb represents an interval of 15.26 µs nominal.
@@ -1070,7 +1071,7 @@ void ParseEnvisatLevel0ImPackets(const std::vector<char>& file_data, const DSD_l
     memcpy(q_lut.data(), ins_file.fbp.q_LUT_fbaq4, 4096 * sizeof(float));
     ConvertAsarImBlocksToComplex(compressed_sample_blocks_buffer.get(),
                                  compressed_sample_blocks_with_length_single_range_item_bytes, echoes.size(),
-                                 swst_codes.data(), min_swst, *d_parsed_packets, sar_meta.img.range_size, i_lut.data(),
+                                 swst_codes.data(), min_swst, {*d_parsed_packets, nullptr}, sar_meta.img.range_size, i_lut.data(),
                                  q_lut.data(), 4096);
 
     // TODO init guess handling? At the moment just a naive guess from nadir point
@@ -1124,4 +1125,5 @@ void ParseEnvisatLevel0ImPackets(const std::vector<char>& file_data, const DSD_l
          << diagnostics.packet_data_blocks_max;
 #endif
 }
+*/
 }  // namespace alus::asar::envformat

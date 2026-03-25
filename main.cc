@@ -170,12 +170,38 @@ int main(int argc, char* argv[]) {
             asar_meta.product_err = true;
         }
 
+        const int az_size = sar_meta.img.azimuth_size;
+        const int rg_size = sar_meta.img.range_size;
+        const auto fft_sizes = GetOptimalFFTSizes();
+
+        const auto rg_plan_sz = fft_sizes.upper_bound(rg_size + sar_meta.chirp.n_samples);
+        LOGD << "Range FFT padding sz = " << rg_plan_sz->first << "(2 ^ " << rg_plan_sz->second[0] << " * 3 ^ "
+             << rg_plan_sz->second[1] << " * 5 ^ " << rg_plan_sz->second[2] << " * 7 ^ " << rg_plan_sz->second[3]
+             << ")";
+        const int rg_padded = rg_plan_sz->first;
+
+        const auto az_plan_sz = fft_sizes.upper_bound(az_size);
+
+        LOGD << "azimuth FFT padding sz = " << az_plan_sz->first << " (2 ^ " << az_plan_sz->second[0] << " * 3 ^ "
+             << az_plan_sz->second[1] << " * 5 ^ " << az_plan_sz->second[2] << " * 7 ^ " << az_plan_sz->second[3]
+             << ")";
+        int az_padded = az_plan_sz->first;
+
+        LOGD << "FFT paddings: rg  = " << rg_size << "->" << rg_padded << " az = " << az_size << "->" << az_padded;
+
         while (!cuda_init.IsFinished())
             ;
         cuda_init.CheckErrors();
-        cufftComplex* d_parsed_packets;
-        alus::asar::mainflow::ConvertRawSampleSetsToComplex(compressed_measurements, packets_metadata, sar_meta,
-                                                            ins_file, product_type, &d_parsed_packets);
+
+        std::vector<DevicePaddedImage> imgs(
+            product_type == alus::asar::specification::ProductTypes::ASA_AP0 ? 2 : 1
+        );
+        for(DevicePaddedImage &img: imgs) {
+            img.InitPadded(rg_size, az_size, rg_padded, az_padded);
+        }
+
+        alus::asar::mainflow::ConvertRawSampleSetsToComplex(compressed_measurements, packets_metadata,
+                                                            ins_file, product_type, imgs);
 
         TimeStop(packet_fetch_start, "Packets and sar_meta parsing plus converting to complex samples");
 
@@ -211,25 +237,6 @@ int main(int argc, char* argv[]) {
         std::string wif_name_base = asar_meta.product_name;
         wif_name_base.resize(wif_name_base.size() - 3);
 
-        const int az_size = sar_meta.img.azimuth_size;
-        const int rg_size = sar_meta.img.range_size;
-        const auto fft_sizes = GetOptimalFFTSizes();
-
-        const auto rg_plan_sz = fft_sizes.upper_bound(rg_size + sar_meta.chirp.n_samples);
-        LOGD << "Range FFT padding sz = " << rg_plan_sz->first << "(2 ^ " << rg_plan_sz->second[0] << " * 3 ^ "
-             << rg_plan_sz->second[1] << " * 5 ^ " << rg_plan_sz->second[2] << " * 7 ^ " << rg_plan_sz->second[3]
-             << ")";
-        const int rg_padded = rg_plan_sz->first;
-
-        const auto az_plan_sz = fft_sizes.upper_bound(az_size);
-
-        LOGD << "azimuth FFT padding sz = " << az_plan_sz->first << " (2 ^ " << az_plan_sz->second[0] << " * 3 ^ "
-             << az_plan_sz->second[1] << " * 5 ^ " << az_plan_sz->second[2] << " * 7 ^ " << az_plan_sz->second[3]
-             << ")";
-        int az_padded = az_plan_sz->first;
-
-        LOGD << "FFT paddings: rg  = " << rg_size << "->" << rg_padded << " az = " << az_size << "->" << az_padded;
-
         auto vr_start = TimeStart();
         // TODO - Would give exactly the same results as in EstimateProcessingVelocity()'s sub step.
         // Results would change after VR_poly and doppler_centroid_poly are updated ?!
@@ -244,68 +251,82 @@ int main(int argc, char* argv[]) {
         GenerateChirpData(sar_meta.chirp, rg_padded);
         LOGD << "CHIRP sar_meta.chirp.Kr = " << sar_meta.chirp.Kr;
 
-        // WIP START
-        std::vector<bool> rx_pol_set;
-        for(bool rx_pol: rx_pol_set) {
-            if(rx_pol) {}
-        }
-        // WIP END
+        std::vector<DevicePaddedImage> subsetted_raster_vec(imgs.size());
+        CudaWorkspace d_workspace(imgs[0].TotalByteSize());
 
-        auto gpu_transfer_start = TimeStart();
+        for(size_t i = 0; i < imgs.size(); i++) {
+            DevicePaddedImage& img = imgs[i];
 
-        DevicePaddedImage img;
-        img.InitPadded(rg_size, az_size, rg_padded, az_padded);
-        img.ZeroMemory();
+            auto gpu_transfer_start = TimeStart();
 
-        CHECK_CUDA_ERR(cudaMemcpy2D(img.Data(), rg_padded * 8, d_parsed_packets, rg_size * 8, rg_size * 8, az_size,
-                                    cudaMemcpyDeviceToDevice));
-        CHECK_CUDA_ERR(cudaFree(d_parsed_packets));
+            TimeStop(gpu_transfer_start, "GPU image formation");
 
-        TimeStop(gpu_transfer_start, "GPU image formation");
+            if (args.StoreIntensity()) {
+                alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "orig", img);
+            }
 
-        if (args.StoreIntensity()) {
-            alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "orig", img);
-        }
+            auto correction_start = TimeStart();
+            RawDataCorrection(img, {sar_meta.total_raw_samples}, sar_meta.results);
+            img.ZeroNaNs();
+            TimeStop(correction_start, "I/Q correction");
 
-        auto correction_start = TimeStart();
-        RawDataCorrection(img, {sar_meta.total_raw_samples}, sar_meta.results);
-        img.ZeroNaNs();
-        TimeStop(correction_start, "I/Q correction");
+            auto dc_start = TimeStart();
+            // Element from the back() indicates polynomial starting value.
+            sar_meta.results.doppler_centroid_poly = CalculateDopplerCentroid(img, sar_meta.pulse_repetition_frequency);
+            TimeStop(dc_start, "fractional DC estimation");
 
-        auto dc_start = TimeStart();
-        // Element from the back() indicates polynomial starting value.
-        sar_meta.results.doppler_centroid_poly = CalculateDopplerCentroid(img, sar_meta.pulse_repetition_frequency);
-        TimeStop(dc_start, "fractional DC estimation");
+            if (args.StoreIntensity()) {
+                alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "raw", img);
+            }
 
-        if (args.StoreIntensity()) {
-            alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "raw", img);
-        }
+            LOGD << "Image GPU byte size = " << (img.TotalByteSize() / 1e9) << "GB";
+            LOGD << "Estimated GPU memory usage ~" << ((img.TotalByteSize() * 2) / 1e9) << "GB";
 
-        LOGD << "Image GPU byte size = " << (img.TotalByteSize() / 1e9) << "GB";
-        LOGD << "Estimated GPU memory usage ~" << ((img.TotalByteSize() * 2) / 1e9) << "GB";
+            auto rc_start = TimeStart();
+            RangeCompression(img, sar_meta.chirp.padded_windowed_data, sar_meta.chirp.n_samples, d_workspace);
+            TimeStop(rc_start, "Range compression");
 
-        CudaWorkspace d_workspace(img.TotalByteSize());
+            sar_meta.img.range_size = img.XSize();
 
-        auto rc_start = TimeStart();
-        RangeCompression(img, sar_meta.chirp.padded_windowed_data, sar_meta.chirp.n_samples, d_workspace);
-        TimeStop(rc_start, "Range compression");
+            if (args.StoreIntensity()) {
+                alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "rc", img);
+            }
 
-        sar_meta.img.range_size = img.XSize();
+            GainCorrection(img, sar_meta, asar_meta, ins_file, xca);
 
-        if (args.StoreIntensity()) {
-            alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "rc", img);
-        }
+            auto az_comp_start = TimeStart();
+            DevicePaddedImage az_compressed_image;
+            // img is unused after, everything will be traded to 'az_compressed_image'.
+            RangeDopplerAlgorithm(sar_meta, img, az_compressed_image, d_workspace);
+            const auto rcmc_parameters = alus::sar::focus::GetRcmcParameters();
 
-        GainCorrection(img, sar_meta, asar_meta, ins_file, xca);
+            az_compressed_image.ZeroFillPaddings();
 
-        auto az_comp_start = TimeStart();
-        DevicePaddedImage az_compressed_image;
-        // img is unused after, everything will be traded to 'az_compressed_image'.
-        RangeDopplerAlgorithm(sar_meta, img, az_compressed_image, d_workspace);
-        const auto rcmc_parameters = alus::sar::focus::GetRcmcParameters();
+            const auto az_rg_windowing = alus::asar::mainflow::CalcResultsWindow(
+                sar_meta.results.doppler_centroid_poly.back(), packets_before_sensing_start, packets_after_sensing_stop,
+                *std::max_element(aperture_pixels.cbegin(), aperture_pixels.cend()), rcmc_parameters);
 
-        az_compressed_image.ZeroFillPaddings();
+            CHECK_CUDA_ERR(cudaDeviceSynchronize());  // For ZeroFillPaddings() - the kernel was left running async.
+            TimeStop(az_comp_start, "Azimuth compression");
 
+            if (args.StoreIntensity()) {
+                alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "proc_slc",
+                                                    az_compressed_image);
+            }
+
+            DevicePaddedImage& subsetted_raster = subsetted_raster_vec[i];
+
+            alus::asar::mainflow::SubsetResultsAndReassembleMeta(az_compressed_image, az_rg_windowing, packets_metadata,
+                                                                asar_meta, sar_meta, ins_file, product_type, d_workspace,
+                                                                subsetted_raster);
+
+            if (args.StorePlots()) {
+                alus::asar::mainflow::StorePlots(args.GetOutputPath().data(), wif_name_base, sar_meta);
+            }
+        } // END for(DevicePaddedImage& img: imgs)
+
+        EnvisatSubFiles envisat_headers{};
+        alus::asar::mainflow::PrefillIms(envisat_headers, packets_metadata.size());
         std::string lvl1_out_name = asar_meta.product_name;
         lvl1_out_name.at(6) = alus::asar::specification::IsSLCProduct(asar_meta.target_product_type) ? 'S' : 'P';
         lvl1_out_name.at(8) = '1';
@@ -313,42 +334,27 @@ int main(int argc, char* argv[]) {
             std::string(args.GetOutputPath()) + std::filesystem::path::preferred_separator + lvl1_out_name;
         auto lvl1_file_handle = alus::util::FileAsync(lvl1_out_full_path);
 
-        const auto az_rg_windowing = alus::asar::mainflow::CalcResultsWindow(
-            sar_meta.results.doppler_centroid_poly.back(), packets_before_sensing_start, packets_after_sensing_stop,
-            *std::max_element(aperture_pixels.cbegin(), aperture_pixels.cend()), rcmc_parameters);
-
-        CHECK_CUDA_ERR(cudaDeviceSynchronize());  // For ZeroFillPaddings() - the kernel was left running async.
-        TimeStop(az_comp_start, "Azimuth compression");
-
-        if (args.StoreIntensity()) {
-            alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "proc_slc",
-                                                 az_compressed_image);
-        }
-
-        EnvisatSubFiles envisat_headers{};
-        alus::asar::mainflow::PrefillIms(envisat_headers, packets_metadata.size());
-
-        DevicePaddedImage subsetted_raster;
-        alus::asar::mainflow::SubsetResultsAndReassembleMeta(az_compressed_image, az_rg_windowing, packets_metadata,
-                                                             asar_meta, sar_meta, ins_file, product_type, d_workspace,
-                                                             subsetted_raster);
-
-        if (args.StorePlots()) {
-            alus::asar::mainflow::StorePlots(args.GetOutputPath().data(), wif_name_base, sar_meta);
-        }
-
         if (alus::asar::specification::IsDetectedProduct(asar_meta.target_product_type)) {
-            AzimuthMultiLook(subsetted_raster, d_workspace, sar_meta);
+            std::vector<CudaWorkspace> srgr_dest_vec(imgs.size());
+            std::vector<std::array<double, 4UL>> stats_vec(imgs.size());
+            SlantRangeToGroundRangeInterpolation SRGR(sar_meta);
 
-            auto srgr_dest = subsetted_raster.ReleaseMemory();
-            SlantRangeToGroundRangeInterpolation(sar_meta, d_workspace.GetAs<float>(), srgr_dest.GetAs<float>());
-            DevicePaddedImage stats_image;
-            stats_image.InitExtPtr(sar_meta.img.range_size, sar_meta.img.azimuth_size, sar_meta.img.range_size,
-                                   sar_meta.img.azimuth_size, srgr_dest);
-            auto results_stats = TimeStart();
-            auto stats = alus::asar::mainflow::CalculateStatisticsImaged(stats_image);
-            srgr_dest = stats_image.ReleaseMemory();
-            TimeStop(results_stats, "Calculated mean and std dev of the final cut area with amplitude values.");
+            for(size_t i = 0; i < imgs.size(); i++) {
+                auto& subsetted_raster = subsetted_raster_vec[i];
+                auto& stats = stats_vec[i];
+                AzimuthMultiLook(subsetted_raster, d_workspace, sar_meta);
+
+                auto srgr_dest = subsetted_raster.ReleaseMemory();
+                SRGR.apply(d_workspace.GetAs<float>(), srgr_dest.GetAs<float>());
+                DevicePaddedImage stats_image;
+                stats_image.InitExtPtr(SRGR.args.out_x_size, sar_meta.img.azimuth_size, SRGR.args.out_x_size,
+                                    sar_meta.img.azimuth_size, srgr_dest);
+                auto results_stats = TimeStart();
+                stats = alus::asar::mainflow::CalculateStatisticsImaged(stats_image);
+                srgr_dest_vec[i] = stats_image.ReleaseMemory();
+                TimeStop(results_stats, "Calculated mean and std dev of the final cut area with amplitude values.");
+            }
+            SRGR.adjust_meta(sar_meta);
 
             const auto swath_idx = alus::asar::envformat::SwathIdx(asar_meta.swath);
             auto tambov = xca.scaling_factor_im_slc_vv[swath_idx]; // TODO check why not use _im_precision_
@@ -362,8 +368,10 @@ int main(int argc, char* argv[]) {
 
             // TODO - final statistic perhaps should be calculated on the final assembled image
             // not the raw focussed one?
-            stats.at(0) *= tambov;
-            stats.at(2) *= tambov;
+            for(auto& stats: stats_vec) {
+                stats.at(0) *= tambov;
+                stats.at(2) *= tambov;
+            }
 
             auto format_result_workspace = std::move(d_workspace);
             constexpr size_t record_header_bytes = 12 + 1 + 4;
@@ -374,7 +382,7 @@ int main(int argc, char* argv[]) {
             mds.record_size = mds_record_size;
             mds.buf = new char[mds.n_records * mds.record_size];
             const std::vector<uint8_t> output_header =
-                ConstructEnvisatFileHeader(envisat_headers, sar_meta, asar_meta, mds, stats, GetSoftwareVersion());
+                ConstructEnvisatFileHeader(envisat_headers, sar_meta, asar_meta, mds, stats_vec, GetSoftwareVersion());
             if (!lvl1_file_handle.CanWrite(std::chrono::seconds(10))) {
                 throw std::runtime_error("Could not create L1 file at " + lvl1_out_full_path);
             }
@@ -387,21 +395,27 @@ int main(int argc, char* argv[]) {
             }
 
             auto device_mds_buf = format_result_workspace.GetAs<char>();
-            const float* d_deteced_img = srgr_dest.GetAs<float>();
+            for(auto& srgr_dest: srgr_dest_vec) {
+                const float* d_deteced_img = srgr_dest.GetAs<float>();
 
-            alus::asar::mainflow::FormatResultsDetected(d_deteced_img, device_mds_buf, record_header_bytes, tambov, sar_meta);
-            CHECK_CUDA_ERR(
-                cudaMemcpy(mds.buf, device_mds_buf, mds.n_records * mds.record_size, cudaMemcpyDeviceToHost));
-            if (!lvl1_file_handle.CanWrite(std::chrono::seconds(10))) {
-                throw std::runtime_error("Writing headers and DSDs of Level 1 product at " + lvl1_out_full_path +
-                                         " did not finish in 10 seconds. Check platform for the performance issues.");
+                alus::asar::mainflow::FormatResultsDetected(d_deteced_img, device_mds_buf, record_header_bytes, tambov, sar_meta);
+                CHECK_CUDA_ERR(
+                    cudaMemcpy(mds.buf, device_mds_buf, mds.n_records * mds.record_size, cudaMemcpyDeviceToHost));
+                if (!lvl1_file_handle.CanWrite(std::chrono::seconds(10))) {
+                    throw std::runtime_error("Writing headers and DSDs of Level 1 product at " + lvl1_out_full_path +
+                                            " did not finish in 10 seconds. Check platform for the performance issues.");
+                }
+                lvl1_file_handle.WriteSync(mds.buf, mds.n_records * mds.record_size);
             }
-            lvl1_file_handle.WriteSync(mds.buf, mds.n_records * mds.record_size);
             LOGI << "IMP done @ " << lvl1_out_full_path;
         } else if (alus::asar::specification::IsSLCProduct(asar_meta.target_product_type)) {
-            auto results_stats = TimeStart();
-            auto stats = alus::asar::mainflow::CalculateStatistics(subsetted_raster);
-            TimeStop(results_stats, "Calculated mean and std dev of the final cut area with pure I/Q values.");
+            std::vector<std::array<double, 4UL>> stats_vec;
+            for(auto& subsetted_raster: subsetted_raster_vec) {
+                auto results_stats = TimeStart();
+                auto stats = alus::asar::mainflow::CalculateStatistics(subsetted_raster);
+                TimeStop(results_stats, "Calculated mean and std dev of the final cut area with pure I/Q values.");
+                stats_vec.push_back(stats);
+            }
 
             // Best guess for final scaling as can be.
             const auto swath_idx = alus::asar::envformat::SwathIdx(asar_meta.swath);
@@ -413,25 +427,27 @@ int main(int argc, char* argv[]) {
             }
             // TODO - Final statistic perhaps should be calculated on the final assembled
             // image not the raw focussed one?
-            stats.at(0) *= tambov;
-            stats.at(1) *= tambov;
-            stats.at(2) *= tambov;
-            stats.at(3) *= tambov;
-
+            for(auto& stats: stats_vec) {
+                stats.at(0) *= tambov;
+                stats.at(1) *= tambov;
+                stats.at(2) *= tambov;
+                stats.at(3) *= tambov;
+            }
             auto result_file_assembly = TimeStart();
             // az_compressed_image is unused from now on.
             constexpr size_t record_header_bytes = 12 + 1 + 4;
-            const auto mds_record_size = subsetted_raster.XSize() * sizeof(IQ16) + record_header_bytes;
-            const auto mds_record_count = subsetted_raster.YSize();
+            const auto mds_record_size = subsetted_raster_vec[0].XSize() * sizeof(IQ16) + record_header_bytes;
+            const auto mds_record_count = subsetted_raster_vec[0].YSize();
             MDS mds;
             mds.n_records = mds_record_count;
             mds.record_size = mds_record_size;
             auto mds_buffer_init = std::async(std::launch::async, [&mds] {
                 mds.buf = static_cast<char*>(alus::util::Memalloc(mds.n_records * mds.record_size));
             });
+            bool mds_buffer_done = false;
 
             const std::vector<uint8_t> output_header =
-                ConstructEnvisatFileHeader(envisat_headers, sar_meta, asar_meta, mds, stats, GetSoftwareVersion());
+                ConstructEnvisatFileHeader(envisat_headers, sar_meta, asar_meta, mds, stats_vec, GetSoftwareVersion());
             if (!lvl1_file_handle.CanWrite(std::chrono::seconds(10))) {
                 throw std::runtime_error("Could not create L1 file at " + lvl1_out_full_path);
             }
@@ -448,32 +464,38 @@ int main(int argc, char* argv[]) {
             }
 
             auto device_mds_buf = d_workspace.GetAs<char>();
-            alus::asar::mainflow::FormatResultsSLC(subsetted_raster, device_mds_buf, record_header_bytes, tambov, sar_meta);
-            TimeStop(result_correction_start, "Image results correction");
 
-            auto mds_formation = TimeStart();
+            for(auto& subsetted_raster: subsetted_raster_vec) {
+                alus::asar::mainflow::FormatResultsSLC(subsetted_raster, device_mds_buf, record_header_bytes, tambov, sar_meta);
+                TimeStop(result_correction_start, "Image results correction");
 
-            if (!mds_buffer_init.valid()) {
-                throw std::runtime_error("MDS output buffer initialization went into invalid state");
+                auto mds_formation = TimeStart();
+
+                if (!mds_buffer_done) {
+                    if(!mds_buffer_init.valid()) {
+                        throw std::runtime_error("MDS output buffer initialization went into invalid state");
+                    }
+                    const auto mds_buffer_init_result = mds_buffer_init.wait_for(std::chrono::seconds(10));
+                    if (mds_buffer_init_result != std::future_status::ready) {
+                        throw std::runtime_error(
+                            "Initializing MDS buffer failed. Please check the platform. The timeout 10 seconds was reached.");
+                    }
+                    mds_buffer_init.get();
+                    mds_buffer_done = true;
+                }
+
+                CHECK_CUDA_ERR(
+                    cudaMemcpy(mds.buf, device_mds_buf, mds.n_records * mds.record_size, cudaMemcpyDeviceToHost));
+                TimeStop(mds_formation, "MDS Host buffer transfer");
+
+                auto file_write = TimeStart();
+                if (!lvl1_file_handle.CanWrite(std::chrono::seconds(10))) {
+                    throw std::runtime_error("Writing headers and DSDs of Level 1 product at " + lvl1_out_full_path +
+                                            " did not finish in 10 seconds. Check platform for the performance issues.");
+                }
+                lvl1_file_handle.WriteSync(mds.buf, mds.n_records * mds.record_size);
+                TimeStop(file_write, "LVL1 file write");
             }
-            const auto mds_buffer_init_result = mds_buffer_init.wait_for(std::chrono::seconds(10));
-            if (mds_buffer_init_result != std::future_status::ready) {
-                throw std::runtime_error(
-                    "Initializing MDS buffer failed. Please check the platform. The timeout 10 seconds was reached.");
-            }
-            mds_buffer_init.get();
-
-            CHECK_CUDA_ERR(
-                cudaMemcpy(mds.buf, device_mds_buf, mds.n_records * mds.record_size, cudaMemcpyDeviceToHost));
-            TimeStop(mds_formation, "MDS Host buffer transfer");
-
-            auto file_write = TimeStart();
-            if (!lvl1_file_handle.CanWrite(std::chrono::seconds(10))) {
-                throw std::runtime_error("Writing headers and DSDs of Level 1 product at " + lvl1_out_full_path +
-                                         " did not finish in 10 seconds. Check platform for the performance issues.");
-            }
-            lvl1_file_handle.WriteSync(mds.buf, mds.n_records * mds.record_size);
-            TimeStop(file_write, "LVL1 file write");
         } else {
             throw std::runtime_error("Unknown/unsupported output product type");
         }

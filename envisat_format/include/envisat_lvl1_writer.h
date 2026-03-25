@@ -28,7 +28,7 @@
 struct __attribute__((packed)) EnvisatSubFiles {
     Lvl1MPH mph;
     Lvl1SPH sph;
-    SummaryQualityADS summary_quality;
+    SummaryQualityADS summary_quality[2];
     MainProcessingParametersADS main_processing_params;
     DopplerCentroidParameters dop_centroid_coeffs;
     ChirpParameters chirp_params;
@@ -49,4 +49,4 @@ struct MDS {
 
 std::vector<uint8_t> ConstructEnvisatFileHeader(EnvisatSubFiles& ims, const SARMetadata& sar_meta,
                                                 const ASARMetadata& asar_meta, const MDS& mds,
-                                                std::array<double, 4> statistics, std::string_view software_ver);
+                                                std::vector<std::array<double, 4>> statistics_vec, std::string_view software_ver);
