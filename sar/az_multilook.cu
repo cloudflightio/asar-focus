@@ -79,23 +79,25 @@ __global__ void TimeDomainAzimuthLook(const cufftComplex* data_in, int x_size, i
     data_out[out_idx] = interp_val;
 }
 
-void AzimuthMultiLook(const DevicePaddedImage& d_slc, CudaWorkspace& out, SARMetadata& sar_meta) {
+AzimuthMultiLook::AzimuthMultiLook(const DevicePaddedImage& d_slc, SARMetadata& sar_meta) {
     constexpr float final_spacing = 12.5f;  // IMP mode azimuth spacing
-
-    const float ratio = final_spacing / sar_meta.azimuth_spacing;
-    const int in_az_size = d_slc.YSize();
-    const int out_az_size = std::round(d_slc.YSize() / ratio);
-    const int range_size = d_slc.XSize();
-    CHECK_BOOL(d_slc.XSize() == d_slc.XStride());
-    dim3 block_size(16, 16);
-    dim3 grid_size((range_size + 15) / 16, (out_az_size + 15) / 16);
-    TimeDomainAzimuthLook<<<grid_size, block_size>>>(d_slc.Data(), range_size, in_az_size, out_az_size, ratio,
-                                                     out.GetAs<float>());
+    ratio = final_spacing / sar_meta.azimuth_spacing;
+    in_az_size = d_slc.YSize();
+    out_az_size = std::round(d_slc.YSize() / ratio);
+    range_size = d_slc.XSize();
 
     sar_meta.azimuth_spacing *= ratio;
     sar_meta.line_time_interval *= ratio;
     sar_meta.img.azimuth_size = out_az_size;
+}
 
+void AzimuthMultiLook::apply(const DevicePaddedImage& d_slc, CudaWorkspace& out) {
+    CHECK_BOOL(d_slc.XSize() == d_slc.XStride());
+    dim3 block_size(16, 16);
+    dim3 grid_size((range_size + 15) / 16, (out_az_size + 15) / 16);
+    TimeDomainAzimuthLook<<<grid_size, block_size>>>(
+        d_slc.Data(), range_size, in_az_size, out_az_size, ratio, out.GetAs<float>()
+    );
     CHECK_CUDA_ERR(cudaDeviceSynchronize());
     CHECK_CUDA_ERR(cudaGetLastError());
 }

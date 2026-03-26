@@ -337,18 +337,19 @@ int main(int argc, char* argv[]) {
         if (alus::asar::specification::IsDetectedProduct(asar_meta.target_product_type)) {
             std::vector<CudaWorkspace> srgr_dest_vec(imgs.size());
             std::vector<std::array<double, 4UL>> stats_vec(imgs.size());
+            AzimuthMultiLook AML(subsetted_raster_vec[0], sar_meta);
             SlantRangeToGroundRangeInterpolation SRGR(sar_meta);
 
             for(size_t i = 0; i < imgs.size(); i++) {
                 auto& subsetted_raster = subsetted_raster_vec[i];
                 auto& stats = stats_vec[i];
-                AzimuthMultiLook(subsetted_raster, d_workspace, sar_meta);
-
+                AML.apply(subsetted_raster, d_workspace);
                 auto srgr_dest = subsetted_raster.ReleaseMemory();
                 SRGR.apply(d_workspace.GetAs<float>(), srgr_dest.GetAs<float>());
                 DevicePaddedImage stats_image;
-                stats_image.InitExtPtr(SRGR.args.out_x_size, sar_meta.img.azimuth_size, SRGR.args.out_x_size,
-                                    sar_meta.img.azimuth_size, srgr_dest);
+                stats_image.InitExtPtr(
+                    SRGR.args.out_x_size, SRGR.args.y_size, SRGR.args.out_x_size, SRGR.args.y_size,
+                    srgr_dest);
                 auto results_stats = TimeStart();
                 stats = alus::asar::mainflow::CalculateStatisticsImaged(stats_image);
                 srgr_dest_vec[i] = stats_image.ReleaseMemory();

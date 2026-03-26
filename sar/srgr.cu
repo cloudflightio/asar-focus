@@ -89,7 +89,7 @@ SlantRangeToGroundRangeInterpolation::SlantRangeToGroundRangeInterpolation(const
     const int output_range_size = ground_distances.back() / ground_spacing;
 
     // fit the GR <-> SR conversion into a polynomial, to be used for interpolation
-    std::vector<double> grsr_poly = Polyfit(ground_distances, slant_ranges, 4);
+    grsr_poly = Polyfit(ground_distances, slant_ranges, 4);
 
     std::string coeff_str = "[";
     for (const auto& e : grsr_poly) {
@@ -110,7 +110,7 @@ SlantRangeToGroundRangeInterpolation::SlantRangeToGroundRangeInterpolation(const
 
 void SlantRangeToGroundRangeInterpolation::adjust_meta(SARMetadata& sar_meta) {
     sar_meta.srgr.applied = true;
-    sar_meta.srgr.grsr_poly.assign(std::begin(args.grsr_poly), std::end(args.grsr_poly));
+    sar_meta.srgr.grsr_poly = grsr_poly;
     sar_meta.range_spacing = args.ground_spacing;
     sar_meta.img.range_size = args.out_x_size;
 }
@@ -118,7 +118,6 @@ void SlantRangeToGroundRangeInterpolation::adjust_meta(SARMetadata& sar_meta) {
 void SlantRangeToGroundRangeInterpolation::apply(const float* d_slant_in, float* d_gr_out) {
     dim3 block_size(16, 16);
     dim3 grid_size((args.out_x_size + 15) / 16, (args.y_size + 15) / 16);
-
     SrGrInterpolation<<<grid_size, block_size>>>(d_slant_in, args, d_gr_out);
     CHECK_CUDA_ERR(cudaDeviceSynchronize());
     CHECK_CUDA_ERR(cudaGetLastError());

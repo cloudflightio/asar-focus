@@ -20,5 +20,13 @@
 #include "device_padded_image.cuh"
 #include "sar_metadata.h"
 
+class AzimuthMultiLook {
+    float ratio;
+    int in_az_size;
+    int out_az_size;
+    int range_size;
 
-void AzimuthMultiLook(const DevicePaddedImage& d_slc, CudaWorkspace& out, SARMetadata& sar_meta);
+public:
+    AzimuthMultiLook(const DevicePaddedImage& d_slc, SARMetadata& sar_meta);
+    void apply(const DevicePaddedImage& d_slc, CudaWorkspace& out);
+};

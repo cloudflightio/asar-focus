@@ -23,6 +23,7 @@
 // void DoSlantRangeToGroundRangeInterpolation(void *pargs, const float* d_slant_in, float* d_gr_out);
 
 class SlantRangeToGroundRangeInterpolation {
+    std::vector<double> grsr_poly;
 public:
     struct KernelArgs {
         float grsr_poly[5];
