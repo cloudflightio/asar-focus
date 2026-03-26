@@ -375,9 +375,10 @@ std::vector<uint8_t> ConstructEnvisatFileHeader(EnvisatSubFiles& header_files, c
             tot += sizeof(header_files.srgr_params);
             n_datasets++;  // + srgr
         }
-        tot += static_cast<size_t>(mds.n_records) * mds.record_size;
+        tot += static_cast<size_t>(mds.n_records) * mds.record_size * statistics_vec.size();
         mph.SetProductSizeInformation(tot, sizeof(header_files.sph), 18, n_datasets);
         file_offset += sizeof(mph);
+        LOGD << "tot=" << tot;
     }
     {
         auto& sph = header_files.sph;
@@ -417,12 +418,20 @@ std::vector<uint8_t> ConstructEnvisatFileHeader(EnvisatSubFiles& header_files, c
 
         sph.SetProductInfo1(asar_meta.swath, asar_meta.ascending ? "ASCENDING" : "DESCENDING",
                             is_slc ? "COMPLEX" : "DETECTED", "RAN/DOP");
-        if (asar_meta.compression_metadata.echo_ratio.length() > 0) {
-            sph.SetProductInfo2(
-                asar_meta.polarization, "",
-                asar_meta.compression_metadata.echo_method + asar_meta.compression_metadata.echo_ratio.front());
-        } else {
-            sph.SetProductInfo2(asar_meta.polarization, "", asar_meta.compression_metadata.echo_method);
+        {
+            std::string compression_arg = asar_meta.compression_metadata.echo_method;
+            if(asar_meta.compression_metadata.echo_ratio.length() > 0) {
+                compression_arg += asar_meta.compression_metadata.echo_ratio.front();
+            }
+            std::string mds1_polar, mds2_polar;
+            if(statistics_vec.size() == 1) {
+                mds1_polar = asar_meta.polarization;
+                mds2_polar = "";
+            } else {
+                mds1_polar = asar_meta.polarization.substr(0,2)+"H";
+                mds2_polar = asar_meta.polarization.substr(0,2)+"V";
+            }
+            sph.SetProductInfo2(mds1_polar, mds2_polar, compression_arg);
         }
         sph.SetProductInfo3(is_slc ? 1 : 4, 1);
         sph.SetProductInfo4(sar_meta.range_spacing, sar_meta.azimuth_spacing, sar_meta.line_time_interval);
@@ -536,12 +545,19 @@ std::vector<uint8_t> ConstructEnvisatFileHeader(EnvisatSubFiles& header_files, c
         }
 
         sph.dsds[9].SetEmptyDSD("MAP PROJECTION GADS", 'G');
-        {
-            sph.dsds[10].SetInternalDSD("MDS1", 'M', file_offset, mds.n_records, mds.record_size);
-            // MDS1
+
+        for(size_t i=0; i<2; i++) {
+            char dsname[20];
+            std::sprintf(dsname, "MDS%ld", i+1);
+            if(i < statistics_vec.size()) {
+                sph.dsds[10+i].SetInternalDSD(dsname, 'M',
+                    file_offset + static_cast<size_t>(mds.n_records) * mds.record_size * i,
+                    mds.n_records, mds.record_size);
+            } else {
+                sph.dsds[10+i].SetEmptyDSD(dsname, 'M');
+            }
         }
 
-        sph.dsds[11].SetEmptyDSD("MDS2", 'M');
         sph.dsds[12].SetReferenceDSD("LEVEL 0 PRODUCT", asar_meta.product_name);
         sph.dsds[13].SetReferenceDSD("ASAR PROCESSOR CONFIG", asar_meta.configuration_file);
         sph.dsds[14].SetReferenceDSD("INSTRUMENT CHARACTERIZATION", asar_meta.instrument_file);
@@ -553,6 +569,7 @@ std::vector<uint8_t> ConstructEnvisatFileHeader(EnvisatSubFiles& header_files, c
         sph.dsds[16].SetReferenceDSD("EXTERNAL CALIBRATION", asar_meta.external_calibration_file);
         sph.dsds[17].SetReferenceDSD("ORBIT STATE VECTOR 1", asar_meta.orbit_dataset_name);
     }
+    LOGD << "file_offset=" << file_offset+ static_cast<size_t>(mds.n_records) * mds.record_size * statistics_vec.size();
 
     std::vector<uint8_t> out_buffer;
     append_packed_struct(out_buffer, header_files.mph);

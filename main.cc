@@ -402,11 +402,13 @@ int main(int argc, char* argv[]) {
                 alus::asar::mainflow::FormatResultsDetected(d_deteced_img, device_mds_buf, record_header_bytes, tambov, sar_meta);
                 CHECK_CUDA_ERR(
                     cudaMemcpy(mds.buf, device_mds_buf, mds.n_records * mds.record_size, cudaMemcpyDeviceToHost));
+                auto file_write = TimeStart();
                 if (!lvl1_file_handle.CanWrite(std::chrono::seconds(10))) {
                     throw std::runtime_error("Writing headers and DSDs of Level 1 product at " + lvl1_out_full_path +
                                             " did not finish in 10 seconds. Check platform for the performance issues.");
                 }
                 lvl1_file_handle.WriteSync(mds.buf, mds.n_records * mds.record_size);
+                TimeStop(file_write, "LVL1 file write");
             }
             LOGI << "IMP done @ " << lvl1_out_full_path;
         } else if (alus::asar::specification::IsSLCProduct(asar_meta.target_product_type)) {
