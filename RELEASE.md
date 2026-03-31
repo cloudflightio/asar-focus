@@ -1,3 +1,40 @@
+# Release 1.2.0
+
+## Major Features and Improvements
+* Preliminary implementation for AP mode has been added
+* Derive chirp Kr from ERS replica for improved calibration
+
+## Known Limitations
+* AP mode has not been fully validated
+* Not all metadata fields are populated
+
+## Thanks to our Contributors
+Fabiano Costantini, Lisa Haskell from Telespazio UK\
+Sabrina Pinori, Chloe Martella from SERCO\
+Andrea Recchia from aresys
+
+# Release 1.1.0
+
+## Major Features and Improvements
+* Full support for IM processing mode
+* Add gain correction implementation
+* Use a configurable hamming window coefficient
+
+## Bug Fixes and Other changes
+* Minor fixes to the IM processing mode
+* Cleanup and memory allocation fixes
+
+## Known Limitations
+* Not all metadata fields are populated
+
+## Thanks to our Contributors
+Fabiano Costantini, Lisa Haskell from Telespazio UK\
+Sabrina Pinori, Chloe Martella from SERCO\
+Andrea Recchia from aresys
+
+# Release 1.0.0
+* Final CGI Estonia version
+
 # Release 0.3.2
 
 ## Breaking changes
