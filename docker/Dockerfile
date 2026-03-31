@@ -13,31 +13,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
+ARG CUDA_VERSION=12.4.1
+ARG CUDA_BUILD_IMAGE=nvidia/cuda:$CUDA_VERSION-devel-ubuntu22.04
+ARG CUDA_RUN_IMAGE=nvidia/cuda:$CUDA_VERSION-runtime-ubuntu22.04
 
+
+FROM $CUDA_BUILD_IMAGE AS build
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        cmake git clang clang-format clang-tidy \
+        gdal-bin libgdal-dev libboost-program-options-dev libboost-date-time-dev libboost-iostreams-dev libboost-log-dev
+
+COPY . /src
+RUN mkdir /build
+
+RUN cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=75 -DALUS_ENABLE_TESTS=ON -B /build /src
+
+WORKDIR /build
+RUN make -j12 VERBOSE=1
+
+
+FROM build AS test
+CMD ["find", "unit-test/", "-type", "f", "-exec", "{}", ";"] 
+
+
+FROM $CUDA_RUN_IMAGE AS app
+
+ARG BOOST_VERSION=1.74.0
+ARG GDAL_VERSION=30
 ARG USER_ID=1001
 ARG GROUP_ID=1001
 
 RUN groupadd -g ${GROUP_ID} asar-focus && \
-    useradd -m -s /bin/bash -u ${USER_ID} -g asar-focus asar-focus
+    useradd -l -m -s /bin/bash -u ${USER_ID} -g asar-focus asar-focus
 
-# for tzdata installation - https://askubuntu.com/questions/909277/avoiding-user-interaction-with-tzdata-when-installing-certbot-in-a-docker-contai
 ENV DEBIAN_FRONTEND=noninteractive
-RUN rm /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list
-RUN apt update && apt install -y --no-install-recommends \
-	gdal-bin libgdal-dev libboost-program-options-dev libboost-date-time-dev libboost-iostreams-dev libboost-log-dev zlib1g-dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgdal$GDAL_VERSION \
+        libboost-program-options$BOOST_VERSION libboost-date-time$BOOST_VERSION libboost-iostreams$BOOST_VERSION libboost-log$BOOST_VERSION
 
-RUN apt install -y cmake git
-RUN apt install -y clang clang-format clang-tidy libeigen3-dev unzip
+RUN mkdir /dist
+WORKDIR /dist
 
 USER asar-focus
+COPY --from=build /build/asar_focus .
 
-COPY --chown=asar-focus:asar-focus . /asar-focus
-WORKDIR /asar-focus
-
-RUN cmake -DCMAKE_CUDA_ARCHITECTURES=75 -B build .
-WORKDIR build
-RUN make VERBOSE=1
-
-USER root
-RUN ln -s /asar-focus/build/asar_focus /usr/local/bin
+ENTRYPOINT ["./asar_focus"]
