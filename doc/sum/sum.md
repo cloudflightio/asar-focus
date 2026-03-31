@@ -1,17 +1,13 @@
 # 1 Introduction
 
-Following information describes the usage of the ERS and Envisat focusser utilizing GPU. It is implemented in C/C++/CUDA
+This document describes the usage of the ERS and Envisat focusser utilizing GPU. It is implemented in C/C++/CUDA
 programming languages. Here is described how to install dependencies and build/compile and run the processor. Not all
-steps have to be executed in order to run focussing process. There are prebuilt container images and binaries available.
-The processor contains **hidden** functionality that could be invoked to
-analyze the internals of the processing results. They are described in the chapters below.
+steps have to be executed in order to run focussing process.
 
 Required datasets and auxiliary files are also described. Although for better and more complete overview following
 documents are suggested:
 * QA4EO-SER-REP-REP-4512
 * PO-RS-MDA-GS-2009 Chapter 8
-
-<div style="page-break-after: always;"></div>
 
 # 2 Prerequisites
 
@@ -20,35 +16,38 @@ version 8 (codename Ootpa). There are 2 set of requirements lists - for developm
 Common components are NVIDIA GPU driver and CUDA SDK components that should be installed on the processing environment
 for both scenarios.
 
-The list of packages and installation scripts are available at [ALUS-platform GitHub repo](https://github.com/cgi-estonia-space/ALUs-platform).
-Based on target platform one can conveniently choose intended scripts. Subchapters consist summary of those.
-
 ## 2.1 Common components
 
-| Name          | Version        | Description                                                                                                                                                                         | Instructions                                                                                                                                                                                                                                                                                                                            |
-|---------------|----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Nvidia driver | 525 >=         | Component that manages the GPU(s) installed on the system. Also manages low level communication with the device(s). Exposes driver API which is utilized by CUDA Toolkit libraries. | [Ootpa](https://github.com/cgi-estonia-space/ALUs-platform/blob/main/rhel/8/ootpa/install_nvidia_driver.sh)/[Ootpa manual](https://gist.github.com/kautlenbachs/8c6d7966693668d94aa86085403f4821) \| [Jammy](https://github.com/cgi-estonia-space/ALUs-platform/blob/main/ubuntu/22_04/jammy-aws/install_nvidia_container_base.sh)      |
-| Cuda SDK      | 11.2 >= 12.0 < | Enables GPU interfacing through the driver API. Also includes GPU tuned libraries for FFT, algebra, etc.                                                                            | [Ootpa](https://github.com/cgi-estonia-space/ALUs-platform/blob/main/rhel/8/ootpa/install_cuda_base.sh)/[Ootpa manual](https://gist.github.com/kautlenbachs/8c6d7966693668d94aa86085403f4821#installation-of-cuda-sdk) \| [Jammy](https://github.com/cgi-estonia-space/ALUs-platform/blob/main/ubuntu/22_04/jammy/install_cuda_base.sh) |                                                                                                                                                                                                                           |
+| Name          | Version        | Description |
+|---------------|----------------|-------------|
+| Nvidia driver | >= 550, < 580  | Component that manages the GPU(s) installed on the system. Also manages low level communication with the device(s). Exposes driver API which is utilized by CUDA Toolkit libraries. |
+| Cuda SDK      | 12.4           | Enables GPU interfacing through the driver API. Also includes GPU tuned libraries for FFT, algebra, etc. |
 
+### 2.1.1 Using containers
 
-### 2.1.1 Enabling containers
+The recommended way to build and run the processor is through containers. This provides a repeatable, standardized, and 
+platform-independent processes, while also providing for the necessary isolation for security purposes.
 
-There are many options to choose from which are all summarized on Nvidia's official CDI page at https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/index.html.
+In order to enable containers with GPUs, there are many options to choose from which are all summarized on Nvidia's official 
+CDI page at https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/index.html.
 The scenario could vary from the type of operating system to orchestration framework used. This means there could be
 different engines used - docker, containerd, CRI-O and podman - which all need customized setup.
 
-Currently, utilized and tested approaches within this project are represented below:
-* [podman on Ootpa](https://github.com/cgi-estonia-space/ALUs-platform/blob/main/rhel/8/ootpa/install_container_toolkit.sh)
-* [docker on Jammy](https://github.com/cgi-estonia-space/ALUs-platform/blob/main/ubuntu/22_04/jammy-aws/install_nvidia_container_base.sh)
+### 2.1.2 Building and running in containers
 
-### 2.1.2 Prebuilt containers
+The `Dockerfile` included with the source code (`./docker` subdirectory) provides for both building and running the processor.
+A helper script is included to simplify the container building.
 
-Below are listed published container images on Dockerhub
+Building the container follows the standard way:
+```
+docker build . -f ./docker/Dockerfile -t asar-focus:latest 
+```
 
-| Platform | Development                | Runtime                      |
-|----------|----------------------------|------------------------------|
-| Ootpa    | `cgialus/alus-ootpa-devel` | `cgialus/alus-ootpa-runtime` |
-| Jammy    | `cgialus/alus-devel`       | `cgialus/alus-runtime`       |
+Running the processor with the container also follows the standard way, however, attention has to be paid to mount the 
+input/output volumes with read/write access for the processor:
+```
+docker run --rm -it -v $INSERT_DATA_DIR:/data:ro -v $INSERT_OUT_DIR:/out:rw --gpus device=0 asar-focus:latest ...
+```
 
 ## 2.2 Runtime COTS
 
@@ -57,10 +56,6 @@ Below are listed published container images on Dockerhub
 | libstdc++ | == 6.0          | The GNU C++ standard library                            |
 | boost     | == 1.71 <= 1.78 | Libraries for CLI arguments, date and time and logging  |
 | GDAL      | == 3.0.4        | Creates GeoTIFF files for analyzing purposes            |
-
-Setup scripts:
-* [Ootpa](https://github.com/cgi-estonia-space/ALUs-platform/blob/main/rhel/8/ootpa/setup_runtime.sh)
-* [Jammy](https://github.com/cgi-estonia-space/ALUs-platform/blob/main/ubuntu/22_04/jammy/setup_runtime.sh)
 
 ## 2.3 Development COTS
 
@@ -76,18 +71,14 @@ Setup scripts:
 | Eigen     | == 3.4          | Algebra library, header only                            |
 | GDAL      | == 3.0.4        | Creates GeoTIFF files for analyzing purposes            |
 
-Setup scripts:
-* [Ootpa](https://github.com/cgi-estonia-space/ALUs-platform/blob/main/rhel/8/ootpa/setup_devel.sh)
-* [Jammy](https://github.com/cgi-estonia-space/ALUs-platform/blob/main/ubuntu/22_04/jammy/setup_dev.sh)
-
 # 3 Usage
 
 The developed processor called `asar_focus` is a single executable GPU ERS and ENVISAT SAR focussing tool. No graphical
 user interface or any other hidden requirements are present. Below will be described the arguments, formats and input
 datasets/auxiliary files. All the produced files will be written to the location specified by the `output` argument.
 
-If the program has successfully processed the product the return code of the binary execution will be **0**. Any other
-exit code means error during processing which SHALL be accompanied by the message on the console. Unsuccessful
+If the program has successfully processed the product the return code of the binary execution will be `0`. Any other
+exit code means error during processing which is accompanied by the message on the console. Unsuccessful
 processing could occur due to the invalid input(s), programming error or host machine's/OS errors/congestion.
 
 There is no distinction between ERS and ENVISAT instrument datasets. When there are modes/types given that are not
@@ -102,12 +93,12 @@ Next run `make` inside the build directory.
 
 Additionally one can open the `CMakeLists.txt` file with an editor/IDE that supports CMake (e.g. CLion).
 
-The build script supports two options:
+The build script supports several options:
 * Specify CUDA architecture target(s) for the binary - `CMAKE_CUDA_ARCHITECTURES` or environment variable `CUDAARCHS`
 * Build tests - `ALUS_ENABLE_TEST`
 
 For example:\
-`cmake -B my_build_dir -DCMAKE_CUDA_ARCHITECTURES=75 -DALUS_ENABLE_TESTS=ON asar-focus/`
+`cmake -B my_build_dir -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=75 -DALUS_ENABLE_TESTS=ON asar-focus/`
 
 ## 3.2 CLI arguments
 
@@ -118,7 +109,7 @@ specific DORIS orbit file path could be given. When not specifying sensing time 
 input packets if there is sufficient GPU memory.
 
 ```
-asar_gpu/0.3.1
+asar_gpu/1.2.0
   -h [ --help ]         Print help
   -i [ --input ] arg    Level 0 ERS or ENVISAT dataset
   --aux arg             Auxiliary files folder path
@@ -136,7 +127,7 @@ asar_gpu/0.3.1
                         verbose|debug|info|warning|error
 ```
 
-As of release version 0.3.x `type` supports `IMS` or `IMP`. Any other value would result in termination
+As of release version 1.2.0 `type` supports `IMS`, `IMP`, `APS`, and `APP`. Any other value would result in termination
 of processing with accompanying message on console.
 
 ### 3.2.1 Hidden CLI features
@@ -178,12 +169,12 @@ DOR_VOR_AXVF-P20120424_125300_20040228_215528_20040301_002328
 
 ## 3.3 Input datasets
 
-Single level 0 **envisat format** ERS-1/2 and Envisat mission dataset is required. As of version 0.3.x only imaging mode
-datasets are supported. The specification is given in document `PO-RS-MDA-GS-2009 4/C`.
+Single level 0 **envisat format** ERS-1/2 and Envisat mission dataset is required. As of version 1.2.0 imaging mode 
+and alternative polarisation datasets are supported. The specification is given in document `PO-RS-MDA-GS-2009 4/C`.
 
 ## 3.4 Auxiliary files
 
-As of version 0.3.x the following auxiliary files are used:
+As of version 1.2.0 the following auxiliary files are used:
 * DORIS orbit files in envisat format, see [DOR_VOR_AX](https://earth.esa.int/eogateway/catalog/envisat-doris-precise-orbit-state-vectors-dor-vor_ax-)
 * Processor configuration file (ASA_CON_AX/ER_CON_AX)
 * Instrument characterization file (AUX_INS_AX/ER_INS_AX)
