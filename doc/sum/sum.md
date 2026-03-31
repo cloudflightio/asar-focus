@@ -1,4 +1,4 @@
-# 1 Introduction
+# Introduction
 
 This document describes the usage of the ERS and Envisat focusser utilizing GPU. It is implemented in C/C++/CUDA
 programming languages. Here is described how to install dependencies and build/compile and run the processor. Not all
@@ -9,21 +9,21 @@ documents are suggested:
 * QA4EO-SER-REP-REP-4512
 * PO-RS-MDA-GS-2009 Chapter 8
 
-# 2 Prerequisites
+# Prerequisites
 
 Currently tested target platforms are Ubuntu 22.04 LTS (codename Jammy and its flavours) and Red Hat Enterprise Linux
 version 8 (codename Ootpa). There are 2 set of requirements lists - for development (devel) and for running (runtime).
 Common components are NVIDIA GPU driver and CUDA SDK components that should be installed on the processing environment
 for both scenarios.
 
-## 2.1 Common components
+## Common components
 
 | Name          | Version        | Description |
 |---------------|----------------|-------------|
-| Nvidia driver | >= 550, < 580  | Component that manages the GPU(s) installed on the system. Also manages low level communication with the device(s). Exposes driver API which is utilized by CUDA Toolkit libraries. |
+| Nvidia driver | 550 +          | Component that manages the GPU(s) installed on the system. Also manages low level communication with the device(s). Exposes driver API which is utilized by CUDA Toolkit libraries. |
 | Cuda SDK      | 12.4           | Enables GPU interfacing through the driver API. Also includes GPU tuned libraries for FFT, algebra, etc. |
 
-### 2.1.1 Using containers
+### Using containers
 
 The recommended way to build and run the processor is through containers. This provides a repeatable, standardized, and 
 platform-independent processes, while also providing for the necessary isolation for security purposes.
@@ -33,7 +33,7 @@ CDI page at https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/la
 The scenario could vary from the type of operating system to orchestration framework used. This means there could be
 different engines used - docker, containerd, CRI-O and podman - which all need customized setup.
 
-### 2.1.2 Building and running in containers
+### Building and running in containers
 
 The `Dockerfile` included with the source code (`./docker` subdirectory) provides for both building and running the processor.
 A helper script is included to simplify the container building.
@@ -49,29 +49,29 @@ input/output volumes with read/write access for the processor:
 docker run --rm -it -v $INSERT_DATA_DIR:/data:ro -v $INSERT_OUT_DIR:/out:rw --gpus device=0 asar-focus:latest ...
 ```
 
-## 2.2 Runtime COTS
+## Runtime COTS
 
 | Name      | Version         | Description                                             |
 |-----------|-----------------|---------------------------------------------------------|
-| libstdc++ | == 6.0          | The GNU C++ standard library                            |
-| boost     | == 1.71 <= 1.78 | Libraries for CLI arguments, date and time and logging  |
-| GDAL      | == 3.0.4        | Creates GeoTIFF files for analyzing purposes            |
+| libstdc++ |  6.0            | The GNU C++ standard library                            |
+| boost     |  1.74           | Libraries for CLI arguments, date and time and logging  |
+| GDAL      |  3.0.4          | Creates GeoTIFF files for analyzing purposes            |
 
-## 2.3 Development COTS
+## Development COTS
 
 | Name      | Version         | Description                                             |
 |-----------|-----------------|---------------------------------------------------------|
-| CMake     | \>= 3.20        | Build files generation and build execution              |
-| nvcc      | \>= 11.2 < 12.0 | Compiler for GPU device code                            |
-| g++       | \>=8.5 < 12.0   | Compiler for C/C++ host code                            |
-| libstdc++ | == 6.0          | The GNU C++ standard library                            |
-| fmt       | == 10.1         | String, integer and object text print utility           |
-| gtest     | == 1.10         | Automated test development - unit and integration tests |
-| boost     | == 1.71 <= 1.78 | Libraries for CLI arguments, date and time and logging  |
-| Eigen     | == 3.4          | Algebra library, header only                            |
-| GDAL      | == 3.0.4        | Creates GeoTIFF files for analyzing purposes            |
+| CMake     |  3.20 +         | Build files generation and build execution              |
+| nvcc      |  12.4           | Compiler for GPU device code                            |
+| g++       |  8.5            | Compiler for C/C++ host code                            |
+| libstdc++ |  6.0            | The GNU C++ standard library                            |
+| fmt       |  10.1           | String, integer and object text print utility           |
+| gtest     |  1.10           | Automated test development - unit and integration tests |
+| boost     |  1.74           | Libraries for CLI arguments, date and time and logging  |
+| Eigen     |  3.4            | Algebra library, header only                            |
+| GDAL      |  3.0.4          | Creates GeoTIFF files for analyzing purposes            |
 
-# 3 Usage
+# Usage
 
 The developed processor called `asar_focus` is a single executable GPU ERS and ENVISAT SAR focussing tool. No graphical
 user interface or any other hidden requirements are present. Below will be described the arguments, formats and input
@@ -85,7 +85,7 @@ There is no distinction between ERS and ENVISAT instrument datasets. When there 
 present for given instrument then this is reported. Same goes for datasets - the processor makes decisions
 based on the given input arguments.
 
-## 3.1 Development
+## Development
 
 The project can be built using CMake. The arguments are:\
 `cmake -B <build files dir> <CMakeLists.txt location>` e.g. `cmake -B build .`\
@@ -100,7 +100,7 @@ The build script supports several options:
 For example:\
 `cmake -B my_build_dir -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=75 -DALUS_ENABLE_TESTS=ON asar-focus/`
 
-## 3.2 CLI arguments
+## CLI arguments
 
 All the processing input is given by the program arguments. No environment variables or configuration files are used.
 Somewhat exceptions are mission and instrument specific auxiliary files which are supplied with the directory from
@@ -130,7 +130,7 @@ asar_gpu/1.2.0
 As of release version 1.2.0 `type` supports `IMS`, `IMP`, `APS`, and `APP`. Any other value would result in termination
 of processing with accompanying message on console.
 
-### 3.2.1 Hidden CLI features
+### Hidden CLI features
 
 For debugging and research possibilities couple of 'unofficial' command line arguments are present which are given below.
 * `--plot` - create HTML files consisting graphs of the following processing properties - processing velocity,
@@ -140,7 +140,7 @@ For debugging and research possibilities couple of 'unofficial' command line arg
 All the created files would be saved in the same directory as the final product given by the `output` argument. They are
 prefixed with the level 0 dataset name pattern.
 
-### 3.2.2 Examples
+### Examples
 
 During the production and internal tests there are so-called test datasets (TDS) packages used. This is not required
 and one could simply have manually assembled the collection of suitable orbit files and auxiliary files downloaded as
@@ -167,12 +167,12 @@ DOR_VOR_AXVF-P20120424_125300_20040228_215528_20040301_002328
 --sensing_stop 20040229_212523002000
 ```
 
-## 3.3 Input datasets
+## Input datasets
 
 Single level 0 **envisat format** ERS-1/2 and Envisat mission dataset is required. As of version 1.2.0 imaging mode 
 and alternative polarisation datasets are supported. The specification is given in document `PO-RS-MDA-GS-2009 4/C`.
 
-## 3.4 Auxiliary files
+## Auxiliary files
 
 As of version 1.2.0 the following auxiliary files are used:
 * DORIS orbit files in envisat format, see [DOR_VOR_AX](https://earth.esa.int/eogateway/catalog/envisat-doris-precise-orbit-state-vectors-dor-vor_ax-)
@@ -184,12 +184,12 @@ As of version 1.2.0 the following auxiliary files are used:
 For auxiliary file access and documentation please visit [ERS aux](https://earth.esa.int/eogateway/instruments/sar-ers/auxiliary-data)
 and [ENVISAT aux](https://earth.esa.int/eogateway/instruments/asar/auxiliary-data) pages at ESA.
 
-# 4 Hardware requirements
+# Hardware requirements
 
 Below are specified minimum requirements for hardware. It is based on the resources needed to focus 16 seconds of
 level 0 imaging mode dataset. Resource like CPU is out of scope, because all modern CPUs are suitable. Disk storage
 resource is dismal, since only level 1 dataset storage is required also no intermediate files are stored
-(except for debugging features discussed in [3.2.1 Hidden CLI features](#321-hidden-cli-features)).
+(except for hidden cli debugging features).
 
 | Property               | Value  |
 |------------------------|--------|
