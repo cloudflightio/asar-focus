@@ -170,7 +170,7 @@ DOR_VOR_AXVF-P20120424_125300_20040228_215528_20040301_002328
 ## Input datasets
 
 Single level 0 **envisat format** ERS-1/2 and Envisat mission dataset is required. As of version 1.2.0 imaging mode 
-and alternative polarisation datasets are supported. The specification is given in document `PO-RS-MDA-GS-2009 4/C`.
+and alternating polarisation datasets are supported. The specification is given in document `PO-RS-MDA-GS-2009 4/C`.
 
 ## Auxiliary files
 
