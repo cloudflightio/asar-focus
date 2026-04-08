@@ -29,9 +29,11 @@ The recommended way to build and run the processor is through containers. This p
 platform-independent processes, while also providing for the necessary isolation for security purposes.
 
 In order to enable containers with GPUs, there are many options to choose from which are all summarized on Nvidia's official 
-CDI page at https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/index.html.
+CDI page[^NVCDI].
 The scenario could vary from the type of operating system to orchestration framework used. This means there could be
 different engines used - docker, containerd, CRI-O and podman - which all need customized setup.
+
+[^NVCDI]: <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/index.html>
 
 ### Building and running in containers
 
@@ -144,9 +146,11 @@ prefixed with the level 0 dataset name pattern.
 
 During the production and internal tests there are so-called test datasets (TDS) packages used. This is not required
 and one could simply have manually assembled the collection of suitable orbit files and auxiliary files downloaded as
-a bundle on online at available ESA sites (see [ERS](https://earth.esa.int/eogateway/instruments/sar-ers/auxiliary-data)
-and [ENVISAT](https://earth.esa.int/eogateway/instruments/asar/auxiliary-data)).
+a bundle on online at available ESA sites (see ERS[^ERS] and ENVISAT[^ENVISAT]).
 Both of the scenarios are supported. Below are given examples for both.
+
+[^ERS]: <https://earth.esa.int/eogateway/instruments/sar-ers/auxiliary-data>
+[^ENVISAT]: <https://earth.esa.int/eogateway/instruments/asar/auxiliary-data>
 
 **Manually assembled datasets**
 ```
@@ -175,14 +179,17 @@ and alternating polarisation datasets are supported. The specification is given 
 ## Auxiliary files
 
 As of version 1.2.0 the following auxiliary files are used:
-* DORIS orbit files in envisat format, see [DOR_VOR_AX](https://earth.esa.int/eogateway/catalog/envisat-doris-precise-orbit-state-vectors-dor-vor_ax-)
+* DORIS orbit files in envisat format (DOR_VOR_AX[^DOR_VOR_AX])
 * Processor configuration file (ASA_CON_AX/ER_CON_AX)
 * Instrument characterization file (AUX_INS_AX/ER_INS_AX)
 * External calibration data (ASA_XCA_AX/ER_XCA)
 * PATC for ERS onboard time corrections
 
-For auxiliary file access and documentation please visit [ERS aux](https://earth.esa.int/eogateway/instruments/sar-ers/auxiliary-data)
-and [ENVISAT aux](https://earth.esa.int/eogateway/instruments/asar/auxiliary-data) pages at ESA.
+For auxiliary file access and documentation please visit the ERS aux[^ERS-aux] and ENVISAT aux[^ENVISAT-aux] pages at ESA.
+
+[^DOR_VOR_AX]: <https://earth.esa.int/eogateway/catalog/envisat-doris-precise-orbit-state-vectors-dor-vor_ax->
+[^ERS-aux]: <https://earth.esa.int/eogateway/instruments/sar-ers/auxiliary-data>
+[^ENVISAT-aux]: <https://earth.esa.int/eogateway/instruments/asar/auxiliary-data>
 
 # Hardware requirements
 
@@ -197,4 +204,6 @@ resource is dismal, since only level 1 dataset storage is required also no inter
 | GPU (V)RAM             | 4 GB   |
 | NVIDIA CUDA generation | CC 6.0 |
 
-For specific compute capability and NVIDIA GPU models, please see [CUDA wikipedia page](https://en.wikipedia.org/wiki/CUDA#GPUs_supported).
+For specific compute capability and NVIDIA GPU models, please see CUDA wikipedia page[^CUDA].
+
+[^CUDA]: <https://en.wikipedia.org/wiki/CUDA#GPUs_supported>
