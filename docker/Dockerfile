@@ -59,4 +59,4 @@ WORKDIR /dist
 USER asar-focus
 COPY --from=build /build/asar_focus .
 
-ENTRYPOINT ["./asar_focus"]
+ENTRYPOINT ["/dist/asar_focus"]
