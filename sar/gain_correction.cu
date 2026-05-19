@@ -95,7 +95,7 @@ void GainCorrection(DevicePaddedImage& img, SARMetadata &sar_meta, ASARMetadata 
     double angles[201];
     for (int i = 0; i < 201; i++) {
         eap_corr[i] = pow(10, -lut[i]/20);
-        angles[i] = angle - 5 + i * (10.0/201);
+        angles[i] = angle - 5 + i / 20.0;
     }
 
     // get center orbit
