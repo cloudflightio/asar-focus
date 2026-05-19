@@ -257,10 +257,6 @@ int main(int argc, char* argv[]) {
         for(size_t i = 0; i < imgs.size(); i++) {
             DevicePaddedImage& img = imgs[i];
 
-            auto gpu_transfer_start = TimeStart();
-
-            TimeStop(gpu_transfer_start, "GPU image formation");
-
             if (args.StoreIntensity()) {
                 alus::asar::mainflow::StoreIntensity(args.GetOutputPath().data(), wif_name_base, "orig", img);
             }
