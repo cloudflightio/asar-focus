@@ -29,12 +29,12 @@
 #define GAIN_CORRECTION_GROUNDPOINTS 20
 #define RSL_REF_RANGE 800e3
 
-__global__ void GainCorrectionApply(cuComplex* data, const double* correction, int range_size, int azimuth_size, int correction_size) {
+__global__ void GainCorrectionApply(cuComplex* data, const double* correction, int range_stride, int azimuth_size, int correction_size) {
     const int x = threadIdx.x + blockDim.x * blockIdx.x;
     const int y = threadIdx.y + blockDim.y * blockIdx.y;
-    const int data_idx = y * range_size + x;
+    const int data_idx = y * range_stride + x;
 
-    if (x >= correction_size) return;
+    if (x >= correction_size || y >= azimuth_size) return;
 
     data[data_idx].x *= correction[x];
     data[data_idx].y *= correction[x];
@@ -131,13 +131,13 @@ void GainCorrection(DevicePaddedImage& img, SARMetadata &sar_meta, ASARMetadata 
     CHECK_CUDA_ERR(cudaMalloc(&d_gc, gc_interp_size));
     CHECK_CUDA_ERR(cudaMemcpy(d_gc, gc_interp.data(), gc_interp_size, cudaMemcpyHostToDevice));
 
-    int x_size = img.XStride();
-    int y_size = img.YStride();
+    int x_stride = img.XStride();
+    int y_size = img.YSize();
 
     // apply correction
     dim3 block_size(16, 16);
-    dim3 grid_size((x_size + 15) / 16, (y_size + 15) / 16);
-    GainCorrectionApply<<<grid_size, block_size>>>(d_data, d_gc, x_size, y_size, gc_interp.size());
+    dim3 grid_size((x_stride + 15) / 16, (y_size + 15) / 16);
+    GainCorrectionApply<<<grid_size, block_size>>>(d_data, d_gc, x_stride, y_size, gc_interp.size());
 
     CHECK_CUDA_ERR(cudaDeviceSynchronize());
     CHECK_CUDA_ERR(cudaGetLastError());
