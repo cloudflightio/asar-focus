@@ -72,9 +72,9 @@ void KrFromReplica(ChirpInfo& chirp) {
         return;
     std::vector<double> idx;
     std::vector<double> phase;
-    double phi0;
-    double i0;
-    double dphi;
+    double phi0 = 0.0;
+    double i0 = 0.0;
+    double dphi = 0.0;
     float maxrep = 0.0f;
     for(auto& rep: chirp.replica_pulses) {
         maxrep = std::max(maxrep, abs(rep));
