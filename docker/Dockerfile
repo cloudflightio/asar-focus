@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=12.4.1
+ARG CUDA_VERSION=13.2.1
 ARG CUDA_BUILD_IMAGE=nvidia/cuda:$CUDA_VERSION-devel-ubuntu22.04
 ARG CUDA_RUN_IMAGE=nvidia/cuda:$CUDA_VERSION-runtime-ubuntu22.04
 
